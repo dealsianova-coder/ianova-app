@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_service.dart';
+import '../../core/state/wishlist_controller.dart';
 import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
 import '../../models/product.dart';
 import '../../widgets/ianova_product_card.dart';
+import '../notifications/notifications_page.dart';
+import '../search/search_page.dart';
+import '../wishlist/wishlist_page.dart';
+import 'product_list_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -43,6 +48,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadStorefront() async {
+    WishlistController.instance.load();
+
     setState(() {
       _isLoading = true;
       _error = null;
@@ -118,6 +125,49 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _openNotifications() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const NotificationsPage(),
+      ),
+    );
+  }
+
+  Future<void> _openWishlist() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const WishlistPage(),
+      ),
+    );
+
+    // The user may have removed items on that page.
+    WishlistController.instance.load();
+  }
+
+  void _openSearch() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SearchPage(
+          onProductTap: widget.onProductTap,
+          onCartChanged: widget.onCartChanged,
+        ),
+      ),
+    );
+  }
+
+  void _openProductList(String title, List<Product> products) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ProductListPage(
+          title: title,
+          products: products,
+          onProductTap: widget.onProductTap,
+          onCartChanged: widget.onCartChanged,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final flashDeals = _products
@@ -129,10 +179,17 @@ class _HomePageState extends State<HomePage> {
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          const SliverToBoxAdapter(child: _Header()),
-          const SliverToBoxAdapter(child: _SearchBar()),
           SliverToBoxAdapter(
-            child: _CategoryStrip(
+            child: _Header(
+              onNotifications: _openNotifications,
+              onWishlist: _openWishlist,
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: _SearchBar(onTap: _openSearch),
+          ),
+          SliverToBoxAdapter(
+            child: _CategoryPicker(
               categories: _categories,
               selectedCategoryId: _selectedCategoryId,
               onSelected: _selectCategory,
@@ -161,12 +218,15 @@ class _HomePageState extends State<HomePage> {
             )
           else ...[
             if (flashDeals.isNotEmpty) ...[
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: _SectionHeader(
                   title: 'Flash deals',
                   action: 'See all',
+                  onAction: () =>
+                      _openProductList('Flash deals', flashDeals),
                 ),
-              ),SliverToBoxAdapter(
+              ),
+              SliverToBoxAdapter(
                 child: SizedBox(
                   height: 310,
                   child: ListView.separated(
@@ -185,8 +245,7 @@ class _HomePageState extends State<HomePage> {
                         width: 205,
                         child: IanovaProductCard(
                           product: flashDeals[index],
-                          onTap: () =>
-                              widget.onProductTap?.call(
+                          onTap: () => widget.onProductTap?.call(
                             flashDeals[index],
                           ),
                           onCartChanged: widget.onCartChanged,
@@ -197,10 +256,12 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ],
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: _SectionHeader(
                 title: 'Popular picks',
                 action: 'View all',
+                onAction: () =>
+                    _openProductList('Popular picks', _products),
               ),
             ),
             SliverPadding(
@@ -215,8 +276,7 @@ class _HomePageState extends State<HomePage> {
                   (context, index) {
                     return IanovaProductCard(
                       product: _products[index],
-                      onTap: () =>
-                          widget.onProductTap?.call(
+                      onTap: () => widget.onProductTap?.call(
                         _products[index],
                       ),
                       onCartChanged: widget.onCartChanged,
@@ -241,7 +301,13 @@ class _HomePageState extends State<HomePage> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header();
+  const _Header({
+    required this.onNotifications,
+    required this.onWishlist,
+  });
+
+  final VoidCallback onNotifications;
+  final VoidCallback onWishlist;
 
   @override
   Widget build(BuildContext context) {
@@ -268,13 +334,15 @@ class _Header extends StatelessWidget {
           ),
           const Spacer(),
           IconButton(
-            onPressed: () {},
+            onPressed: onNotifications,
+            tooltip: 'Notifications',
             icon: const Icon(
               Icons.notifications_none_rounded,
             ),
           ),
           IconButton(
-            onPressed: () {},
+            onPressed: onWishlist,
+            tooltip: 'Wishlist',
             icon: const Icon(
               Icons.favorite_border_rounded,
             ),
@@ -286,7 +354,9 @@ class _Header extends StatelessWidget {
 }
 
 class _SearchBar extends StatelessWidget {
-  const _SearchBar();
+  const _SearchBar({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -298,6 +368,9 @@ class _SearchBar extends StatelessWidget {
         IanovaSpacing.lg,
       ),
       child: TextField(
+        readOnly: true,
+        canRequestFocus: false,
+        onTap: onTap,
         decoration: const InputDecoration(
           hintText: 'Search products...',
           prefixIcon: Icon(Icons.search_rounded),
@@ -307,8 +380,9 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
-class _CategoryStrip extends StatelessWidget {
-  const _CategoryStrip({
+/// A single "All" pill. Tapping it opens a list with every category inside.
+class _CategoryPicker extends StatelessWidget {
+  const _CategoryPicker({
     required this.categories,
     required this.selectedCategoryId,
     required this.onSelected,
@@ -318,54 +392,149 @@ class _CategoryStrip extends StatelessWidget {
   final int? selectedCategoryId;
   final ValueChanged<int?> onSelected;
 
+  String get _label {
+    if (selectedCategoryId == null) {
+      return 'All';
+    }
+
+    for (final category in categories) {
+      if (category.id == selectedCategoryId) {
+        return '${category.emoji} ${category.name}'.trim();
+      }
+    }
+
+    return 'All';
+  }
+
+  void _openSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: IanovaColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(IanovaSpacing.radiusXLarge),
+        ),
+      ),
+      builder: (sheetContext) {
+        void pick(int? categoryId) {
+          Navigator.of(sheetContext).pop();
+          onSelected(categoryId);
+        }
+
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(sheetContext).size.height * 0.7,
+            ),
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(
+                IanovaSpacing.xl,
+                IanovaSpacing.xl,
+                IanovaSpacing.xl,
+                IanovaSpacing.xl,
+              ),
+              children: [
+                Text(
+                  'Categories',
+                  style: Theme.of(sheetContext).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: IanovaSpacing.sm),
+                _CategoryOption(
+                  emoji: '🛍️',
+                  label: 'All',
+                  selected: selectedCategoryId == null,
+                  onTap: () => pick(null),
+                ),
+                for (final category in categories)
+                  _CategoryOption(
+                    emoji: category.emoji,
+                    label: category.name,
+                    selected: selectedCategoryId == category.id,
+                    onTap: () => pick(category.id),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 46,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(
-          horizontal: IanovaSpacing.xl,
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: IanovaSpacing.xl,
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ActionChip(
+          onPressed: () => _openSheet(context),
+          backgroundColor: IanovaColors.primary,
+          side: BorderSide.none,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 6,
+            vertical: 8,
+          ),
+          label: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+            ],
+          ),
         ),
-        scrollDirection: Axis.horizontal,
-        itemCount: categories.length + 1,
-        separatorBuilder: (_, _) => const SizedBox(width: 9),
-        itemBuilder: (context, index) {
-          final isAll = index == 0;
-
-          final selected = isAll
-              ? selectedCategoryId == null
-              : selectedCategoryId == categories[index - 1].id;
-
-          final label = isAll
-              ? 'All'
-              : '${categories[index - 1].emoji} '
-                  '${categories[index - 1].name}';
-
-          return ChoiceChip(
-            label: Text(label),
-            selected: selected,
-            onSelected: (_) {
-              onSelected(
-                isAll ? null : categories[index - 1].id,
-              );
-            },
-            selectedColor: IanovaColors.primary,
-            backgroundColor: IanovaColors.surface,
-            labelStyle: TextStyle(
-              color: selected
-                  ? Colors.white
-                  : IanovaColors.primary,
-              fontWeight: FontWeight.w600,
-            ),
-            side: const BorderSide(
-              color: IanovaColors.border,
-            ),
-          );
-        },
       ),
     );
   }
 }
+
+class _CategoryOption extends StatelessWidget {
+  const _CategoryOption({
+    required this.emoji,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String emoji;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      onTap: onTap,
+      leading: Text(
+        emoji,
+        style: const TextStyle(fontSize: 22),
+      ),
+      title: Text(
+        label,
+        style: TextStyle(
+          fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+        ),
+      ),
+      trailing: selected ? const Icon(Icons.check_rounded) : null,
+    );
+  }
+}
+
 class _HeroBanner extends StatelessWidget {
   const _HeroBanner();
 
@@ -444,10 +613,12 @@ class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
     required this.title,
     required this.action,
+    required this.onAction,
   });
 
   final String title;
   final String action;
+  final VoidCallback onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -466,7 +637,7 @@ class _SectionHeader extends StatelessWidget {
           ),
           const Spacer(),
           TextButton(
-            onPressed: () {},
+            onPressed: onAction,
             child: Text(action),
           ),
         ],

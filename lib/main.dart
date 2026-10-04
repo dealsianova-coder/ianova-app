@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/network/api_service.dart';
+import 'core/state/wishlist_controller.dart';
 import 'core/theme/ianova_theme.dart';
 import 'features/home/home_page.dart';
 import 'features/products/product_detail_page.dart';
@@ -45,6 +46,7 @@ class _IanovaShellState extends State<IanovaShell> {
   void initState() {
     super.initState();
     _loadCartCount();
+    WishlistController.instance.load();
   }
 
   @override

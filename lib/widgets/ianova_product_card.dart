@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/network/api_service.dart';
+import '../core/state/wishlist_controller.dart';
 import '../core/theme/ianova_spacing.dart';
 import '../core/theme/ianova_theme.dart';
 import '../models/product.dart';
@@ -26,7 +27,18 @@ class IanovaProductCard extends StatefulWidget {
 
 class _IanovaProductCardState extends State<IanovaProductCard> {
   final ApiService _api = ApiService();
+  final WishlistController _wishlist = WishlistController.instance;
   bool _addingToCart = false;
+
+  Future<void> _toggleFavorite() async {
+    final message = await _wishlist.toggle(widget.product.id);
+
+    if (!mounted || message == null) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
   @override
   void dispose() {
@@ -133,21 +145,31 @@ class _IanovaProductCardState extends State<IanovaProductCard> {
                 Positioned(
                   right: IanovaSpacing.sm,
                   top: IanovaSpacing.sm,
-                  child: Material(
-                    color: Colors.white.withValues(alpha: 0.94),
-                    shape: const CircleBorder(),
-                    child: InkWell(
-                      onTap: widget.onFavorite,
-                      customBorder: const CircleBorder(),
-                      child: const SizedBox(
-                        width: 36,
-                        height: 36,
-                        child: Icon(
-                          Icons.favorite_border_rounded,
-                          size: 19,
+                  child: ListenableBuilder(
+                    listenable: _wishlist,
+                    builder: (context, _) {
+                      final saved = _wishlist.contains(product.id);
+
+                      return Material(
+                        color: Colors.white.withValues(alpha: 0.94),
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          onTap: widget.onFavorite ?? _toggleFavorite,
+                          customBorder: const CircleBorder(),
+                          child: SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: Icon(
+                              saved
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_border_rounded,
+                              size: 19,
+                              color: saved ? IanovaColors.danger : null,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 ),
 

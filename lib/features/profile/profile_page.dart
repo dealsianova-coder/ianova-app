@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/network/api_service.dart';
 import '../../core/storage/auth_storage.dart';
+import '../../core/state/wishlist_controller.dart';
 import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
 import '../../models/order.dart';
@@ -95,12 +96,14 @@ class _ProfilePageState extends State<ProfilePage> {
     );
 
     if (loggedIn == true) {
+      WishlistController.instance.load();
       await _loadSession();
     }
   }
 
   Future<void> _logout() async {
     await AuthStorage.clearSession();
+    WishlistController.instance.clear();
 
     if (!mounted) {
       return;
