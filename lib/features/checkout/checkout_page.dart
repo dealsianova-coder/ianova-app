@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/format/money.dart';
 
 import '../../core/network/api_service.dart';
 import '../../core/storage/auth_storage.dart';
@@ -674,7 +675,7 @@ class _TotalRow extends StatelessWidget {
         ),
         const Spacer(),
         Text(
-          'KSh ${value.toStringAsFixed(2)}',
+          formatKsh(value),
           style: TextStyle(
             fontWeight: emphasized
                 ? FontWeight.w900

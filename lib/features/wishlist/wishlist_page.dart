@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/format/money.dart';
 
 import '../../core/network/api_service.dart';
 import '../../core/config/api_config.dart';
@@ -272,7 +273,7 @@ class _WishlistProductCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'KSh ${product.price.toStringAsFixed(2)}',
+                      formatKsh(product.price),
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
@@ -280,7 +281,7 @@ class _WishlistProductCard extends StatelessWidget {
                     ),
                     if (product.originalPrice > product.price)
                       Text(
-                        'KSh ${product.originalPrice.toStringAsFixed(2)}',
+                        formatKsh(product.originalPrice),
                         style: TextStyle(
                           decoration: TextDecoration.lineThrough,
                           color: Theme.of(context)

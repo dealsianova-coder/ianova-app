@@ -9,6 +9,7 @@ import '../../widgets/ianova_product_card.dart';
 import '../notifications/notifications_page.dart';
 import '../search/search_page.dart';
 import '../wishlist/wishlist_page.dart';
+import 'hero_carousel.dart';
 import 'product_list_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -195,7 +196,6 @@ class _HomePageState extends State<HomePage> {
               onSelected: _selectCategory,
             ),
           ),
-          const SliverToBoxAdapter(child: _HeroBanner()),
           if (_isLoading)
             const SliverToBoxAdapter(
               child: Padding(
@@ -217,6 +217,13 @@ class _HomePageState extends State<HomePage> {
               child: _EmptyState(),
             )
           else ...[
+            SliverToBoxAdapter(
+              child: HeroCarousel(
+                products: flashDeals.isNotEmpty ? flashDeals : _products,
+                onProductTap: (product) =>
+                    widget.onProductTap?.call(product),
+              ),
+            ),
             if (flashDeals.isNotEmpty) ...[
               SliverToBoxAdapter(
                 child: _SectionHeader(
@@ -531,80 +538,6 @@ class _CategoryOption extends StatelessWidget {
         ),
       ),
       trailing: selected ? const Icon(Icons.check_rounded) : null,
-    );
-  }
-}
-
-class _HeroBanner extends StatelessWidget {
-  const _HeroBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        IanovaSpacing.xl,
-        IanovaSpacing.xl,
-        IanovaSpacing.xl,
-        IanovaSpacing.lg,
-      ),
-      child: Container(
-        height: 178,
-        padding: const EdgeInsets.all(IanovaSpacing.xxl),
-        decoration: BoxDecoration(
-          color: IanovaColors.primary,
-          borderRadius: BorderRadius.circular(
-            IanovaSpacing.radiusXLarge,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(
-                        alpha: 0.12,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'IANOVA EXCLUSIVE',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'New season.\nNew essentials.',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 23,
-                      fontWeight: FontWeight.w800,
-                      height: 1.05,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.shopping_bag_rounded,
-              color: Colors.white,
-              size: 76,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

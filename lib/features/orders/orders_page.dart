@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/format/money.dart';
 
 import '../../core/network/api_service.dart';
 import '../../models/order.dart';
@@ -242,7 +243,7 @@ class _OrderCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'KSh ${order.total.toStringAsFixed(2)}',
+                    formatKsh(order.total),
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -585,7 +586,7 @@ class _OrderItemCard extends StatelessWidget {
                   ],
                   const SizedBox(height: 4),
                   Text(
-                    '${item.quantity} × KSh ${item.unitPrice.toStringAsFixed(2)}',
+                    '${item.quantity} × ${formatKsh(item.unitPrice)}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -593,7 +594,7 @@ class _OrderItemCard extends StatelessWidget {
             ),
             const SizedBox(width: _spaceSm),
             Text(
-              'KSh ${item.itemTotal.toStringAsFixed(2)}',
+              formatKsh(item.itemTotal),
               style: const TextStyle(
                 fontWeight: FontWeight.w800,
               ),
@@ -673,7 +674,7 @@ class _TotalRow extends StatelessWidget {
           ),
         ),
         Text(
-          'KSh ${value.toStringAsFixed(2)}',
+          formatKsh(value),
           style: style,
         ),
       ],

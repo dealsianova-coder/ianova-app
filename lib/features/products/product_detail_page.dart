@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/format/money.dart';
 
 import '../../core/config/api_config.dart';
 import '../../core/network/api_service.dart';
@@ -261,7 +262,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      'KSh ${_currentPrice.toStringAsFixed(0)}',
+                      formatKsh(_currentPrice),
                       style: Theme.of(context)
                           .textTheme
                           .headlineSmall
@@ -272,7 +273,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     if ((_currentOriginalPrice ?? 0) > _currentPrice) ...[
                       const SizedBox(width: 10),
                       Text(
-                        'KSh ${_currentOriginalPrice!.toStringAsFixed(0)}',
+                        formatKsh(_currentOriginalPrice!),
                         style: Theme.of(context)
                             .textTheme
                             .bodyMedium
@@ -590,7 +591,7 @@ class _BottomPurchaseBar extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'KSh ${price.toStringAsFixed(0)}',
+                    formatKsh(price),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,

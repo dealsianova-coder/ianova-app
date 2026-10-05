@@ -5,6 +5,7 @@ import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
 import '../../models/product.dart';
 import '../../widgets/ianova_product_card.dart';
+import '../../widgets/product_browser.dart';
 import '../products/product_detail_page.dart';
 
 class CategoriesPage extends StatefulWidget {
@@ -334,13 +335,11 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: IanovaColors.background,
-      appBar: AppBar(
-        title: Text(
-          widget.category.name,
-          style: const TextStyle(
-            fontWeight: FontWeight.w800,
-          ),
-        ),
+      appBar: buildBrowserAppBar(
+        context,
+        title: widget.category.name,
+        count: _isLoading || _error != null ? null : _products.length,
+        onProductTap: _openProduct,
       ),
       body: _buildBody(),
     );
@@ -422,32 +421,11 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
       );
     }
 
-    return RefreshIndicator(
+    return ProductBrowser(
+      products: _products,
+      bannerTitle: widget.category.name,
+      onProductTap: _openProduct,
       onRefresh: _loadProducts,
-      child: GridView.builder(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
-          IanovaSpacing.xl,
-          IanovaSpacing.lg,
-          IanovaSpacing.xl,
-          IanovaSpacing.xxxl,
-        ),
-        itemCount: _products.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 18,
-          crossAxisSpacing: 14,
-          childAspectRatio: 0.66,
-        ),
-        itemBuilder: (context, index) {
-          final product = _products[index];
-
-          return IanovaProductCard(
-            product: product,
-            onTap: () => _openProduct(product),
-          );
-        },
-      ),
     );
   }
 }

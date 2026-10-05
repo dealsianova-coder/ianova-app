@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/format/money.dart';
 
 import '../../core/network/api_service.dart';
 import '../../core/theme/ianova_spacing.dart';
@@ -222,7 +223,7 @@ class _NotificationTile extends StatelessWidget {
         return _NotificationInfo(
           Icons.receipt_long_rounded,
           'Order #$id received',
-          'We got your order of KSh ${order.total.toStringAsFixed(0)}. '
+          'We got your order of ${formatKsh(order.total)}. '
               'We will confirm it shortly.',
         );
       case 'approved':

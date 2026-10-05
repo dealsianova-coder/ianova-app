@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/format/money.dart';
 
 import '../core/network/api_service.dart';
 import '../core/state/wishlist_controller.dart';
@@ -122,20 +123,18 @@ class _IanovaProductCardState extends State<IanovaProductCard> {
                     top: IanovaSpacing.sm,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 6,
+                        horizontal: 10,
+                        vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: IanovaColors.primary,
-                        borderRadius: BorderRadius.circular(
-                          IanovaSpacing.radiusSmall,
-                        ),
+                        color: IanovaColors.danger,
+                        borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         '-${product.discountPercent}%',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -198,7 +197,7 @@ class _IanovaProductCardState extends State<IanovaProductCard> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                'KSh ${product.price.toStringAsFixed(0)}',
+                formatKsh(product.price),
                 style: Theme.of(context)
                     .textTheme
                     .titleMedium
@@ -210,7 +209,7 @@ class _IanovaProductCardState extends State<IanovaProductCard> {
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    'KSh ${product.originalPrice.toStringAsFixed(0)}',
+                    formatKsh(product.originalPrice),
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context)
                         .textTheme
@@ -261,7 +260,7 @@ class _IanovaProductCardState extends State<IanovaProductCard> {
 
           SizedBox(
             width: double.infinity,
-            height: 38,
+            height: 40,
             child: FilledButton.icon(
               onPressed: product.stock > 0 && !_addingToCart
                   ? _addToCart
@@ -289,9 +288,7 @@ class _IanovaProductCardState extends State<IanovaProductCard> {
                   fontWeight: FontWeight.w800,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(
-                    IanovaSpacing.radiusSmall,
-                  ),
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
             ),

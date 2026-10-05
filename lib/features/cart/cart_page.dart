@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/format/money.dart';
 
 import '../../core/network/api_service.dart';
 import '../../core/theme/ianova_spacing.dart';
@@ -360,7 +361,7 @@ class _CartItemCard extends StatelessWidget {
                     ),
                     const SizedBox(height: IanovaSpacing.sm),
                     Text(
-                      'KSh ${product.price.toStringAsFixed(0)}',
+                      formatKsh(product.price),
                       style: const TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 16,
@@ -368,7 +369,7 @@ class _CartItemCard extends StatelessWidget {
                     ),
                     const SizedBox(height: IanovaSpacing.sm),
                     Text(
-                      'KSh ${item.itemTotal.toStringAsFixed(0)} total',
+                      '${formatKsh(item.itemTotal)} total',
                       style: const TextStyle(
                         color: IanovaColors.secondary,
                         fontWeight: FontWeight.w700,
@@ -501,7 +502,7 @@ class _SummaryCard extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                'KSh ${cart.subtotal.toStringAsFixed(0)}',
+                formatKsh(cart.subtotal),
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,

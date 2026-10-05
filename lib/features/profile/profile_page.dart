@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/format/money.dart';
 
 import '../../core/network/api_service.dart';
 import '../../core/storage/auth_storage.dart';
@@ -747,7 +748,7 @@ class _LatestOrderPreview extends StatelessWidget {
                   Expanded(
                     child: _OrderStat(
                       label: 'Total',
-                      value: 'KSh ${order.total.toStringAsFixed(2)}',
+                      value: formatKsh(order.total),
                     ),
                   ),
                   Expanded(
