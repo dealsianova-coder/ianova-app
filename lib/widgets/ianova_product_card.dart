@@ -14,20 +14,61 @@ class IanovaProductCard extends StatefulWidget {
   final VoidCallback? onFavorite;
   final VoidCallback? onCartChanged;
 
+  /// Makes the discount badge pulse every few seconds.
+  final bool animateBadge;
+
   const IanovaProductCard({
     super.key,
     required this.product,
     this.onTap,
     this.onFavorite,
     this.onCartChanged,
+    this.animateBadge = false,
   });
 
   @override
   State<IanovaProductCard> createState() => _IanovaProductCardState();
 }
 
-class _IanovaProductCardState extends State<IanovaProductCard> {
+class _IanovaProductCardState extends State<IanovaProductCard>
+    with SingleTickerProviderStateMixin {
   final ApiService _api = ApiService();
+  AnimationController? _badgePulse;
+  Animation<double>? _badgeScale;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.animateBadge) {
+      final controller = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 2600),
+      );
+
+      // Start each card at a different point so badges do not pulse together.
+      controller.value = (widget.product.id % 5) / 5;
+      controller.repeat();
+
+      _badgePulse = controller;
+      _badgeScale = TweenSequence<double>([
+        TweenSequenceItem(
+          tween: Tween<double>(begin: 1.0, end: 1.16)
+              .chain(CurveTween(curve: Curves.easeOut)),
+          weight: 10,
+        ),
+        TweenSequenceItem(
+          tween: Tween<double>(begin: 1.16, end: 1.0)
+              .chain(CurveTween(curve: Curves.easeIn)),
+          weight: 14,
+        ),
+        TweenSequenceItem(
+          tween: ConstantTween<double>(1.0),
+          weight: 76,
+        ),
+      ]).animate(controller);
+    }
+  }
   final WishlistController _wishlist = WishlistController.instance;
   bool _addingToCart = false;
 
@@ -43,6 +84,7 @@ class _IanovaProductCardState extends State<IanovaProductCard> {
 
   @override
   void dispose() {
+    _badgePulse?.dispose();
     _api.dispose();
     super.dispose();
   }
@@ -89,6 +131,16 @@ class _IanovaProductCardState extends State<IanovaProductCard> {
     }
   }
 
+  Widget _wrapPulse(Widget badge) {
+    final scale = _badgeScale;
+
+    if (scale == null) {
+      return badge;
+    }
+
+    return ScaleTransition(scale: scale, child: badge);
+  }
+
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
@@ -121,21 +173,23 @@ class _IanovaProductCardState extends State<IanovaProductCard> {
                   Positioned(
                     left: IanovaSpacing.sm,
                     top: IanovaSpacing.sm,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: IanovaColors.danger,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '-${product.discountPercent}%',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
+                    child: _wrapPulse(
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: IanovaColors.danger,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '-${product.discountPercent}%',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                     ),

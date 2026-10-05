@@ -17,6 +17,7 @@ class IanovaColors {
   static const blush = Color(0xFFFDE8EF);
   static const sky = Color(0xFFE6F0FF);
   static const sand = Color(0xFFFFF1D6);
+  static const roseTint = Color(0xFFFFF1F4);
 }
 
 class IanovaTheme {

@@ -9,6 +9,7 @@ import '../../widgets/ianova_product_card.dart';
 import '../notifications/notifications_page.dart';
 import '../search/search_page.dart';
 import '../wishlist/wishlist_page.dart';
+import 'flash_deals_section.dart';
 import 'hero_carousel.dart';
 import 'product_list_page.dart';
 
@@ -224,45 +225,17 @@ class _HomePageState extends State<HomePage> {
                     widget.onProductTap?.call(product),
               ),
             ),
-            if (flashDeals.isNotEmpty) ...[
+            if (flashDeals.isNotEmpty)
               SliverToBoxAdapter(
-                child: _SectionHeader(
-                  title: 'Flash deals',
-                  action: 'See all',
-                  onAction: () =>
+                child: FlashDealsSection(
+                  products: flashDeals,
+                  onSeeAll: () =>
                       _openProductList('Flash deals', flashDeals),
+                  onProductTap: (product) =>
+                      widget.onProductTap?.call(product),
+                  onCartChanged: widget.onCartChanged,
                 ),
               ),
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 310,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(
-                      IanovaSpacing.xl,
-                      4,
-                      IanovaSpacing.xl,
-                      IanovaSpacing.lg,
-                    ),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: flashDeals.length,
-                    separatorBuilder: (_, _) =>
-                        const SizedBox(width: 14),
-                    itemBuilder: (context, index) {
-                      return SizedBox(
-                        width: 205,
-                        child: IanovaProductCard(
-                          product: flashDeals[index],
-                          onTap: () => widget.onProductTap?.call(
-                            flashDeals[index],
-                          ),
-                          onCartChanged: widget.onCartChanged,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ],
             SliverToBoxAdapter(
               child: _SectionHeader(
                 title: 'Popular picks',
