@@ -9,9 +9,13 @@ import '../../widgets/ianova_product_card.dart';
 import '../notifications/notifications_page.dart';
 import '../search/search_page.dart';
 import '../wishlist/wishlist_page.dart';
+import '../../core/storage/recent_products.dart';
+import '../categories/categories_page.dart';
+import 'category_rail.dart';
 import 'flash_deals_section.dart';
 import 'hero_carousel.dart';
 import 'product_list_page.dart';
+import 'recently_viewed_section.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -32,7 +36,7 @@ class _HomePageState extends State<HomePage> {
 
   List<Product> _products = const [];
   List<Category> _categories = const [];
-  int? _selectedCategoryId;
+  List<int> _recentIds = const [];
 
   bool _isLoading = true;
   String? _error;
@@ -41,10 +45,13 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadStorefront();
+    _loadRecent();
+    RecentProducts.changes.addListener(_loadRecent);
   }
 
   @override
   void dispose() {
+    RecentProducts.changes.removeListener(_loadRecent);
     _api.dispose();
     super.dispose();
   }
@@ -59,7 +66,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final results = await Future.wait([
-        _api.getProducts(categoryId: _selectedCategoryId),
+        _api.getProducts(),
         _api.getCategories(),
       ]);
 
@@ -87,44 +94,22 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _selectCategory(int? categoryId) async {
-    setState(() {
-      _selectedCategoryId = categoryId;
-    });
+  Future<void> _loadRecent() async {
+    final ids = await RecentProducts.load();
 
-    await _loadProductsForCategory(categoryId);
+    if (!mounted) return;
+
+    setState(() {
+      _recentIds = ids;
+    });
   }
 
-  Future<void> _loadProductsForCategory(int? categoryId) async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final products = await _api.getProducts(categoryId: categoryId);
-
-      if (!mounted) return;
-
-      setState(() {
-        _products = products;
-        _isLoading = false;
-      });
-    } on ApiException catch (error) {
-      if (!mounted) return;
-
-      setState(() {
-        _error = error.message;
-        _isLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        _error = 'Unable to load products.';
-        _isLoading = false;
-      });
-    }
+  void _openCategory(Category category) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CategoryProductsPage(category: category),
+      ),
+    );
   }
 
   void _openNotifications() {
@@ -176,6 +161,12 @@ class _HomePageState extends State<HomePage> {
         .where((product) => product.isFlashDeal)
         .toList();
 
+    final byId = {for (final product in _products) product.id: product};
+    final recent = [
+      for (final id in _recentIds)
+        if (byId[id] != null) byId[id]!,
+    ];
+
     return RefreshIndicator(
       onRefresh: _loadStorefront,
       child: CustomScrollView(
@@ -191,10 +182,9 @@ class _HomePageState extends State<HomePage> {
             child: _SearchBar(onTap: _openSearch),
           ),
           SliverToBoxAdapter(
-            child: _CategoryPicker(
+            child: CategoryRail(
               categories: _categories,
-              selectedCategoryId: _selectedCategoryId,
-              onSelected: _selectCategory,
+              onSelect: _openCategory,
             ),
           ),
           if (_isLoading)
@@ -234,6 +224,14 @@ class _HomePageState extends State<HomePage> {
                   onProductTap: (product) =>
                       widget.onProductTap?.call(product),
                   onCartChanged: widget.onCartChanged,
+                ),
+              ),
+            if (recent.isNotEmpty)
+              SliverToBoxAdapter(
+                child: RecentlyViewedSection(
+                  products: recent,
+                  onProductTap: (product) =>
+                      widget.onProductTap?.call(product),
                 ),
               ),
             SliverToBoxAdapter(
@@ -356,161 +354,6 @@ class _SearchBar extends StatelessWidget {
           prefixIcon: Icon(Icons.search_rounded),
         ),
       ),
-    );
-  }
-}
-
-/// A single "All" pill. Tapping it opens a list with every category inside.
-class _CategoryPicker extends StatelessWidget {
-  const _CategoryPicker({
-    required this.categories,
-    required this.selectedCategoryId,
-    required this.onSelected,
-  });
-
-  final List<Category> categories;
-  final int? selectedCategoryId;
-  final ValueChanged<int?> onSelected;
-
-  String get _label {
-    if (selectedCategoryId == null) {
-      return 'All';
-    }
-
-    for (final category in categories) {
-      if (category.id == selectedCategoryId) {
-        return '${category.emoji} ${category.name}'.trim();
-      }
-    }
-
-    return 'All';
-  }
-
-  void _openSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: IanovaColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(IanovaSpacing.radiusXLarge),
-        ),
-      ),
-      builder: (sheetContext) {
-        void pick(int? categoryId) {
-          Navigator.of(sheetContext).pop();
-          onSelected(categoryId);
-        }
-
-        return SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(sheetContext).size.height * 0.7,
-            ),
-            child: ListView(
-              shrinkWrap: true,
-              padding: const EdgeInsets.fromLTRB(
-                IanovaSpacing.xl,
-                IanovaSpacing.xl,
-                IanovaSpacing.xl,
-                IanovaSpacing.xl,
-              ),
-              children: [
-                Text(
-                  'Categories',
-                  style: Theme.of(sheetContext).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: IanovaSpacing.sm),
-                _CategoryOption(
-                  emoji: '🛍️',
-                  label: 'All',
-                  selected: selectedCategoryId == null,
-                  onTap: () => pick(null),
-                ),
-                for (final category in categories)
-                  _CategoryOption(
-                    emoji: category.emoji,
-                    label: category.name,
-                    selected: selectedCategoryId == category.id,
-                    onTap: () => pick(category.id),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: IanovaSpacing.xl,
-      ),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: ActionChip(
-          onPressed: () => _openSheet(context),
-          backgroundColor: IanovaColors.primary,
-          side: BorderSide.none,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 6,
-            vertical: 8,
-          ),
-          label: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryOption extends StatelessWidget {
-  const _CategoryOption({
-    required this.emoji,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String emoji;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      onTap: onTap,
-      leading: Text(
-        emoji,
-        style: const TextStyle(fontSize: 22),
-      ),
-      title: Text(
-        label,
-        style: TextStyle(
-          fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-        ),
-      ),
-      trailing: selected ? const Icon(Icons.check_rounded) : null,
     );
   }
 }

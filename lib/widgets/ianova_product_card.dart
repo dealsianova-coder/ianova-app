@@ -310,6 +310,18 @@ class _IanovaProductCardState extends State<IanovaProductCard>
             ],
           ),
 
+          if (product.stock > 0 && product.stock <= 5) ...[
+            const SizedBox(height: 2),
+            Text(
+              'Only ${product.stock} left',
+              style: const TextStyle(
+                color: IanovaColors.danger,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+
           const SizedBox(height: IanovaSpacing.sm),
 
           SizedBox(

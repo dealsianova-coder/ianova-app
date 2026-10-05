@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/format/money.dart';
+import '../../core/storage/recent_products.dart';
 
 import '../../core/config/api_config.dart';
 import '../../core/network/api_service.dart';
@@ -34,6 +35,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   @override
   void initState() {
     super.initState();
+    RecentProducts.add(widget.productId);
     _loadProduct();
   }
 
