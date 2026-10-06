@@ -12,6 +12,7 @@ import '../../models/product_detail.dart';
 import '../../models/user_address.dart';
 import '../../models/checkout_result.dart';
 import '../../models/order.dart';
+import '../../models/store_settings.dart';
 
 class ApiService {
   ApiService({
@@ -127,6 +128,31 @@ class ApiService {
     }
 
     return ProductDetail.fromJson(data);
+  }
+
+  Future<StoreSettings> getStoreSettings() async {
+    final response = await _client.get(
+      Uri.parse('$baseUrl/api/settings.php'),
+    );
+
+    if (response.statusCode != 200) {
+      throw ApiException(
+        'Unable to load store settings.',
+        statusCode: response.statusCode,
+      );
+    }
+
+    final data = _decode(response.body);
+
+    if (data['success'] != true || data['settings'] is! Map) {
+      throw ApiException(
+        data['error']?.toString() ?? 'Unable to load store settings.',
+      );
+    }
+
+    return StoreSettings.fromJson(
+      Map<String, dynamic>.from(data['settings'] as Map),
+    );
   }
 
   Future<Cart> getCart() async {

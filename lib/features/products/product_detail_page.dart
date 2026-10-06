@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
-import '../../core/format/money.dart';
-import '../../core/storage/recent_products.dart';
 
-import '../../core/config/api_config.dart';
+import '../../core/format/money.dart';
 import '../../core/network/api_service.dart';
+import '../../core/state/wishlist_controller.dart';
+import '../../core/storage/recent_products.dart';
 import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
 import '../../models/product_detail.dart';
 import '../../models/product_variant.dart';
+import '../../models/store_settings.dart';
+import '../../widgets/ianova_product_image.dart';
 
 class ProductDetailPage extends StatefulWidget {
   const ProductDetailPage({
@@ -28,8 +30,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
   ProductDetail? _detail;
   ProductVariant? _selectedVariant;
-
+  StoreSettings? _settings;
   bool _isLoading = true;
+  bool _adding = false;
   String? _error;
 
   @override
@@ -37,6 +40,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     super.initState();
     RecentProducts.add(widget.productId);
     _loadProduct();
+    _loadSettings();
   }
 
   @override
@@ -79,6 +83,20 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     }
   }
 
+  Future<void> _loadSettings() async {
+    try {
+      final settings = await _api.getStoreSettings();
+
+      if (!mounted) return;
+
+      setState(() {
+        _settings = settings;
+      });
+    } catch (_) {
+      // The delivery card is simply hidden when settings cannot be loaded.
+    }
+  }
+
   double get _currentPrice {
     return _selectedVariant?.price ?? _detail?.product.price ?? 0;
   }
@@ -92,75 +110,70 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     return _selectedVariant?.stock ?? _detail?.product.stock ?? 0;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: IanovaColors.background,
-      appBar: AppBar(
-        title: const Text('Product'),
-        actions: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.favorite_border_rounded),
-          ),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.shopping_bag_outlined),
-          ),
-        ],
-      ),
-      body: _buildBody(),
-      bottomNavigationBar: _detail == null || _isLoading
-          ? null
-          : _BottomPurchaseBar(
-              price: _currentPrice,
-              stock: _currentStock,
-              onAddToCart: _currentStock > 0
-                  ? _addToCart
-                  : null,
-            ),
-    );
-  }
-
   Future<void> _addToCart() async {
     final detail = _detail;
 
-    if (detail == null || _currentStock < 1) {
+    if (detail == null || _currentStock < 1 || _adding) {
       return;
     }
 
+    setState(() {
+      _adding = true;
+    });
+
+    String? message;
+
     try {
-      await _api.addToCart(
-        productId: detail.product.id,
-      );
-
-      if (!mounted) return;
-
+      await _api.addToCart(productId: detail.product.id);
       widget.onCartChanged?.call();
+      message = 'Added to your cart';
     } on ApiException catch (error) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message),
-        ),
-      );
+      message = error.statusCode == 401
+          ? 'Please sign in to add items to your cart.'
+          : error.message;
     } catch (_) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to add product to cart.'),
-        ),
-      );
+      message = 'Unable to add product to cart.';
     }
+
+    if (!mounted) return;
+
+    setState(() {
+      _adding = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
+  @override
+  Widget build(BuildContext context) {
+    final detail = _detail;
+
+    if (_isLoading || _error != null || detail == null) {
+      return Scaffold(
+        backgroundColor: IanovaColors.background,
+        appBar: AppBar(),
+        body: _buildStateBody(),
       );
+    }
+
+    return Scaffold(
+      backgroundColor: IanovaColors.background,
+      body: _buildContent(detail),
+      bottomNavigationBar: _BottomPurchaseBar(
+        price: _currentPrice,
+        originalPrice: _currentOriginalPrice ?? 0,
+        stock: _currentStock,
+        adding: _adding,
+        onAddToCart: _currentStock > 0 ? _addToCart : null,
+      ),
+    );
+  }
+
+  Widget _buildStateBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (_error != null) {
@@ -170,70 +183,50 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       );
     }
 
-    final detail = _detail;
+    return const Center(child: Text('Product not found.'));
+  }
 
-    if (detail == null) {
-      return const Center(
-        child: Text('Product not found.'),
-      );
-    }
-
+  Widget _buildContent(ProductDetail detail) {
     final product = detail.product;
+    final price = _currentPrice;
+    final original = _currentOriginalPrice ?? 0;
+    final hasDiscount = original > price;
+    final savings = hasDiscount ? original - price : 0.0;
+    final percent = hasDiscount ? ((savings / original) * 100).round() : 0;
+    final settings = _settings;
 
     return RefreshIndicator(
       onRefresh: _loadProduct,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(
-          bottom: IanovaSpacing.xl,
-        ),
+        padding: EdgeInsets.zero,
         children: [
-          _ProductImage(
+          _Gallery(
+            productId: product.id,
             image: product.image,
             emoji: product.emoji,
             backgroundColor: product.bgColor,
+            discountPercent: percent,
+            isFlashDeal: product.isFlashDeal,
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
               IanovaSpacing.xl,
               IanovaSpacing.xl,
               IanovaSpacing.xl,
-              0,
+              IanovaSpacing.xxl,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (product.isFlashDeal)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: IanovaColors.primary,
-                      borderRadius: BorderRadius.circular(
-                        IanovaSpacing.radiusSmall,
-                      ),
-                    ),
-                    child: const Text(
-                      'FLASH DEAL',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: IanovaSpacing.md),
                 Text(
                   product.name,
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
+                    letterSpacing: -0.4,
+                  ),
                 ),
                 const SizedBox(height: IanovaSpacing.sm),
                 Row(
@@ -246,17 +239,26 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     const SizedBox(width: 4),
                     Text(
                       '${product.rating}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(width: 5),
                     Text(
                       '(${product.reviewCount} reviews)',
-                      style: const TextStyle(
-                        color: IanovaColors.muted,
-                      ),
+                      style: const TextStyle(color: IanovaColors.muted),
                     ),
+                    if (product.sellerName.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          'Sold by ${product.sellerName}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: IanovaColors.secondary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: IanovaSpacing.lg),
@@ -264,32 +266,42 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      formatKsh(_currentPrice),
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(
-                            fontWeight: FontWeight.w900,
-                          ),
+                      formatKsh(price),
+                      style: const TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.6,
+                      ),
                     ),
-                    if ((_currentOriginalPrice ?? 0) > _currentPrice) ...[
+                    if (hasDiscount) ...[
                       const SizedBox(width: 10),
-                      Text(
-                        formatKsh(_currentOriginalPrice!),
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(
-                              color: IanovaColors.muted,
-                              decoration:
-                                  TextDecoration.lineThrough,
-                            ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          formatKsh(original),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: IanovaColors.muted,
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
                       ),
                     ],
                   ],
                 ),
+                if (hasDiscount)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'You save ${formatKsh(savings)}',
+                      style: const TextStyle(
+                        color: IanovaColors.success,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: IanovaSpacing.md),
-                _StockLabel(stock: _currentStock),
+                _StockChip(stock: _currentStock),
                 if (detail.hasVariants) ...[
                   const SizedBox(height: IanovaSpacing.xxl),
                   _VariantSelector(
@@ -302,28 +314,25 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     },
                   ),
                 ],
+                if (settings != null) _DeliveryCard(settings: settings),
                 const SizedBox(height: IanovaSpacing.xxl),
-                Text(
-                  'Description',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                const Text(
+                  'About this product',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: IanovaSpacing.sm),
                 Text(
                   product.description.isEmpty
                       ? 'No description available.'
                       : product.description,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyLarge
-                      ?.copyWith(
-                        color: IanovaColors.secondary,
-                        height: 1.55,
-                      ),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: IanovaColors.secondary,
+                    height: 1.55,
+                  ),
                 ),
                 const SizedBox(height: IanovaSpacing.xxl),
                 _InfoCard(
@@ -340,68 +349,367 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       ),
     );
   }
-}class _ProductImage extends StatelessWidget {
-  const _ProductImage({
+}
+
+class _Gallery extends StatelessWidget {
+  const _Gallery({
+    required this.productId,
     required this.image,
     required this.emoji,
     required this.backgroundColor,
+    required this.discountPercent,
+    required this.isFlashDeal,
   });
 
+  final int productId;
   final String image;
   final String emoji;
   final String backgroundColor;
+  final int discountPercent;
+  final bool isFlashDeal;
 
   @override
   Widget build(BuildContext context) {
-    final parsedColor = _parseColor(backgroundColor);
+    final top = MediaQuery.of(context).padding.top;
+    final wishlist = WishlistController.instance;
 
-    return Container(
-      height: 360,
-      width: double.infinity,
-      color: parsedColor,
-      child: image.trim().isEmpty
-          ? Center(
-              child: Text(
-                emoji.isEmpty ? '📦' : emoji,
-                style: const TextStyle(fontSize: 100),
-              ),
-            )
-          : Image.network(
-              IanovaApiConfig.imageUrl(image),
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) {
-                return Center(
-                  child: Text(
-                    emoji.isEmpty ? '📦' : emoji,
-                    style: const TextStyle(fontSize: 100),
-                  ),
-                );
-              },
-              loadingBuilder: (context, child, progress) {
-                if (progress == null) return child;
+    return Stack(
+      children: [
+        IanovaProductImage(
+          image: image,
+          emoji: emoji,
+          backgroundColor: backgroundColor,
+          width: double.infinity,
+          height: 400,
+          borderRadius: const BorderRadius.vertical(
+            bottom: Radius.circular(32),
+          ),
+        ),
+        Positioned(
+          top: top + 8,
+          left: 16,
+          child: _RoundButton(
+            icon: Icons.arrow_back_ios_new_rounded,
+            tooltip: 'Back',
+            onTap: () => Navigator.of(context).pop(),
+          ),
+        ),
+        Positioned(
+          top: top + 8,
+          right: 16,
+          child: ListenableBuilder(
+            listenable: wishlist,
+            builder: (context, _) {
+              final saved = wishlist.contains(productId);
 
-                return const Center(
-                  child: CircularProgressIndicator(),
-                );
-              },
+              return _RoundButton(
+                icon: saved
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
+                color: saved ? IanovaColors.danger : null,
+                tooltip: 'Wishlist',
+                onTap: () async {
+                  final message = await wishlist.toggle(productId);
+
+                  if (message != null && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(message)),
+                    );
+                  }
+                },
+              );
+            },
+          ),
+        ),
+        if (discountPercent > 0)
+          Positioned(
+            left: 16,
+            bottom: 16,
+            child: _Pill(
+              label: '-$discountPercent%',
+              background: IanovaColors.danger,
+              foreground: Colors.white,
             ),
+          ),
+        if (isFlashDeal)
+          const Positioned(
+            right: 16,
+            bottom: 16,
+            child: _Pill(
+              label: 'Flash deal',
+              icon: Icons.bolt_rounded,
+              background: Colors.white,
+              foreground: IanovaColors.primary,
+            ),
+          ),
+      ],
     );
   }
+}
 
-  Color _parseColor(String value) {
-    try {
-      final cleaned = value.replaceAll('#', '');
+class _RoundButton extends StatelessWidget {
+  const _RoundButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.color,
+  });
 
-      if (cleaned.length != 6) {
-        return IanovaColors.soft;
-      }
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  final Color? color;
 
-      return Color(
-        int.parse('FF$cleaned', radix: 16),
-      );
-    } catch (_) {
-      return IanovaColors.soft;
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.94),
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 42,
+            height: 42,
+            child: Icon(icon, size: 20, color: color),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill({
+    required this.label,
+    required this.background,
+    required this.foreground,
+    this.icon,
+  });
+
+  final String label;
+  final Color background;
+  final Color foreground;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 15, color: IanovaColors.danger),
+            const SizedBox(width: 3),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              color: foreground,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StockChip extends StatelessWidget {
+  const _StockChip({required this.stock});
+
+  final int stock;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color;
+    final IconData icon;
+    final String label;
+
+    if (stock <= 0) {
+      color = IanovaColors.danger;
+      icon = Icons.remove_circle_outline_rounded;
+      label = 'Out of stock';
+    } else if (stock <= 5) {
+      color = IanovaColors.danger;
+      icon = Icons.local_fire_department_rounded;
+      label = 'Only $stock left';
+    } else {
+      color = IanovaColors.success;
+      icon = Icons.check_circle_outline_rounded;
+      label = 'In stock';
     }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Delivery and returns facts, taken from the store's own admin settings.
+class _DeliveryCard extends StatelessWidget {
+  const _DeliveryCard({required this.settings});
+
+  final StoreSettings settings;
+
+  IconData _iconFor(String key) {
+    switch (key) {
+      case 'delivery':
+        return Icons.local_shipping_outlined;
+      case 'returns':
+        return Icons.assignment_return_outlined;
+      case 'verified':
+        return Icons.verified_outlined;
+      default:
+        return Icons.info_outline_rounded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <Widget>[];
+
+    for (final point in settings.trust) {
+      rows.add(
+        _PolicyRow(
+          icon: _iconFor(point.key),
+          title: point.title,
+          text: point.text,
+        ),
+      );
+
+      // The free-delivery limit sits right under the delivery row.
+      if (point.key == 'delivery' && settings.freeDeliveryThreshold > 0) {
+        rows.add(
+          _PolicyRow(
+            icon: Icons.redeem_rounded,
+            title: 'Free delivery',
+            text: 'On orders over ${formatKsh(settings.freeDeliveryThreshold)}',
+          ),
+        );
+      }
+    }
+
+    if (rows.isEmpty && settings.freeDeliveryThreshold > 0) {
+      rows.add(
+        _PolicyRow(
+          icon: Icons.redeem_rounded,
+          title: 'Free delivery',
+          text: 'On orders over ${formatKsh(settings.freeDeliveryThreshold)}',
+        ),
+      );
+    }
+
+    if (rows.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: IanovaSpacing.xxl),
+      padding: const EdgeInsets.symmetric(
+        horizontal: IanovaSpacing.lg,
+        vertical: IanovaSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: IanovaColors.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: IanovaColors.border),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0)
+              const Divider(height: 1, color: IanovaColors.border),
+            rows[i],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PolicyRow extends StatelessWidget {
+  const _PolicyRow({
+    required this.icon,
+    required this.title,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String title;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: const BoxDecoration(
+              color: IanovaColors.soft,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (text.isNotEmpty)
+                  Text(
+                    text,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: IanovaColors.secondary,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -449,43 +757,6 @@ class _VariantSelector extends StatelessWidget {
                   : null,
             );
           }).toList(),
-        ),
-      ],
-    );
-  }
-}
-
-class _StockLabel extends StatelessWidget {
-  const _StockLabel({
-    required this.stock,
-  });
-
-  final int stock;
-
-  @override
-  Widget build(BuildContext context) {
-    final inStock = stock > 0;
-
-    return Row(
-      children: [
-        Icon(
-          inStock
-              ? Icons.check_circle_outline_rounded
-              : Icons.remove_circle_outline_rounded,
-          size: 18,
-          color: inStock
-              ? IanovaColors.success
-              : IanovaColors.danger,
-        ),
-        const SizedBox(width: 6),
-        Text(
-          inStock ? '$stock available' : 'Out of stock',
-          style: TextStyle(
-            color: inStock
-                ? IanovaColors.success
-                : IanovaColors.danger,
-            fontWeight: FontWeight.w700,
-          ),
         ),
       ],
     );
@@ -552,12 +823,16 @@ class _InfoCard extends StatelessWidget {
 class _BottomPurchaseBar extends StatelessWidget {
   const _BottomPurchaseBar({
     required this.price,
+    required this.originalPrice,
     required this.stock,
+    required this.adding,
     required this.onAddToCart,
   });
 
   final double price;
+  final double originalPrice;
   final int stock;
+  final bool adding;
   final VoidCallback? onAddToCart;
 
   @override
@@ -570,47 +845,52 @@ class _BottomPurchaseBar extends StatelessWidget {
           IanovaSpacing.xl,
           IanovaSpacing.md,
         ),
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: IanovaColors.surface,
-          border: const Border(
-            top: BorderSide(
-              color: IanovaColors.border,
-            ),
+          border: Border(
+            top: BorderSide(color: IanovaColors.border),
           ),
         ),
         child: Row(
           children: [
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Price',
-                    style: TextStyle(
-                      color: IanovaColors.muted,
-                      fontSize: 12,
-                    ),
-                  ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (originalPrice > price)
                   Text(
-                    formatKsh(price),
+                    formatKsh(originalPrice),
                     style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                      color: IanovaColors.muted,
+                      decoration: TextDecoration.lineThrough,
                     ),
                   ),
-                ],
-              ),
+                Text(
+                  formatKsh(price),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(width: IanovaSpacing.lg),
             Expanded(
               child: FilledButton.icon(
-                onPressed: onAddToCart,
-                icon: const Icon(
-                  Icons.shopping_bag_outlined,
-                ),
-                label: Text(
-                  stock > 0 ? 'Add to cart' : 'Out of stock',
-                ),
+                onPressed: adding ? null : onAddToCart,
+                icon: adding
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.shopping_bag_outlined),
+                label: Text(stock > 0 ? 'Add to cart' : 'Out of stock'),
               ),
             ),
           ],
@@ -619,6 +899,7 @@ class _BottomPurchaseBar extends StatelessWidget {
     );
   }
 }
+
 class _ErrorState extends StatelessWidget {
   const _ErrorState({
     required this.message,
