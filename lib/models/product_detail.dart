@@ -6,11 +6,13 @@ class ProductDetail {
     required this.product,
     required this.variants,
     required this.variantCount,
+    this.related = const [],
   });
 
   final Product product;
   final List<ProductVariant> variants;
   final int variantCount;
+  final List<Product> related;
 
   factory ProductDetail.fromJson(Map<String, dynamic> json) {
     final productJson = json['product'];
@@ -32,6 +34,19 @@ class ProductDetail {
             .toList()
         : <ProductVariant>[];
 
+    final rawRelated = json['related'];
+
+    final related = rawRelated is List
+        ? rawRelated
+            .whereType<Map>()
+            .map(
+              (item) => Product.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList()
+        : <Product>[];
+
     return ProductDetail(
       product: Product.fromJson(
         Map<String, dynamic>.from(productJson),
@@ -40,6 +55,7 @@ class ProductDetail {
       variantCount:
           int.tryParse(json['variant_count'].toString()) ??
           variants.length,
+      related: related,
     );
   }
 

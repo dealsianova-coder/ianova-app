@@ -6,9 +6,11 @@ import '../../core/state/wishlist_controller.dart';
 import '../../core/storage/recent_products.dart';
 import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
+import '../../models/product.dart';
 import '../../models/product_detail.dart';
 import '../../models/product_variant.dart';
 import '../../models/store_settings.dart';
+import '../../widgets/ianova_product_card.dart';
 import '../../widgets/ianova_product_image.dart';
 
 class ProductDetailPage extends StatefulWidget {
@@ -126,7 +128,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     try {
       await _api.addToCart(productId: detail.product.id);
       widget.onCartChanged?.call();
-      message = 'Added to your cart';
+      message = 'Added to cart';
     } on ApiException catch (error) {
       message = error.statusCode == 401
           ? 'Please sign in to add items to your cart.'
@@ -143,6 +145,17 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
+    );
+  }
+
+  void _openRelated(Product product) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ProductDetailPage(
+          productId: product.id,
+          onCartChanged: widget.onCartChanged,
+        ),
+      ),
     );
   }
 
@@ -342,6 +355,39 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ? 'IANOVA'
                       : product.sellerName,
                 ),
+                if (detail.related.isNotEmpty) ...[
+                  const SizedBox(height: IanovaSpacing.xxl),
+                  const Text(
+                    'You may also like',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: IanovaSpacing.md),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 18,
+                      crossAxisSpacing: 14,
+                      childAspectRatio: 0.62,
+                    ),
+                    itemCount: detail.related.length,
+                    itemBuilder: (context, index) {
+                      final item = detail.related[index];
+
+                      return IanovaProductCard(
+                        product: item,
+                        onTap: () => _openRelated(item),
+                        onCartChanged: widget.onCartChanged,
+                      );
+                    },
+                  ),
+                ],
               ],
             ),
           ),

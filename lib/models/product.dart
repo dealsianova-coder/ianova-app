@@ -13,6 +13,8 @@ class Product {
   final bool isFlashDeal;
   final String sellerName;
   final String image;
+  final int categoryId;
+  final String subcategory;
 
   const Product({
     required this.id,
@@ -29,6 +31,8 @@ class Product {
     required this.isFlashDeal,
     required this.sellerName,
     required this.image,
+    this.categoryId = 0,
+    this.subcategory = '',
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -49,6 +53,8 @@ class Product {
           json['is_flash_deal'] == true,
       sellerName: json['seller_name']?.toString() ?? '',
       image: json['image']?.toString() ?? '',
+      categoryId: int.tryParse(json['category_id'].toString()) ?? 0,
+      subcategory: json['subcategory']?.toString().trim() ?? '',
     );
   }
 

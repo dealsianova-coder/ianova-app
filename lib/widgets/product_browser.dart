@@ -160,6 +160,7 @@ class _ProductBrowserState extends State<ProductBrowser> {
 
   ProductSort _sort = ProductSort.popular;
   ProductFilter _filter = ProductFilter.all;
+  String? _subcategory;
   bool _grid = true;
 
   @override
@@ -170,6 +171,10 @@ class _ProductBrowserState extends State<ProductBrowser> {
 
   List<Product> get _visible {
     Iterable<Product> items = widget.products;
+
+    if (_subcategory != null) {
+      items = items.where((product) => product.subcategory == _subcategory);
+    }
 
     switch (_filter) {
       case ProductFilter.all:
@@ -223,6 +228,11 @@ class _ProductBrowserState extends State<ProductBrowser> {
   Widget build(BuildContext context) {
     final visible = _visible;
     final all = widget.products;
+    final subcategories = <String>{
+      for (final product in widget.products)
+        if (product.subcategory.isNotEmpty) product.subcategory,
+    }.toList()
+      ..sort();
     final bannerProduct = all.isEmpty ? null : all.first;
     final maxDiscount = all.fold<int>(
       0,
@@ -251,6 +261,40 @@ class _ProductBrowserState extends State<ProductBrowser> {
                 emoji: bannerProduct.emoji,
                 imageBackground: bannerProduct.bgColor,
                 onPressed: _scrollToProducts,
+              ),
+            ),
+          ),
+        if (subcategories.length >= 2)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: SizedBox(
+                height: 44,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: IanovaSpacing.xl,
+                  ),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _FilterChip(
+                        label: 'All',
+                        selected: _subcategory == null,
+                        onTap: () => setState(() => _subcategory = null),
+                      ),
+                    ),
+                    for (final name in subcategories)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: _FilterChip(
+                          label: name,
+                          selected: _subcategory == name,
+                          onTap: () => setState(() => _subcategory = name),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../core/format/money.dart';
 
@@ -71,6 +73,8 @@ class _IanovaProductCardState extends State<IanovaProductCard>
   }
   final WishlistController _wishlist = WishlistController.instance;
   bool _addingToCart = false;
+  bool _justAdded = false;
+  Timer? _addedTimer;
 
   Future<void> _toggleFavorite() async {
     final message = await _wishlist.toggle(widget.product.id);
@@ -85,6 +89,7 @@ class _IanovaProductCardState extends State<IanovaProductCard>
   @override
   void dispose() {
     _badgePulse?.dispose();
+    _addedTimer?.cancel();
     _api.dispose();
     super.dispose();
   }
@@ -106,6 +111,37 @@ class _IanovaProductCardState extends State<IanovaProductCard>
       if (!mounted) return;
 
       widget.onCartChanged?.call();
+
+      setState(() {
+        _justAdded = true;
+      });
+      _addedTimer?.cancel();
+      _addedTimer = Timer(const Duration(milliseconds: 1800), () {
+        if (mounted) {
+          setState(() {
+            _justAdded = false;
+          });
+        }
+      });
+
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(
+            duration: Duration(milliseconds: 1600),
+            content: Row(
+              children: [
+                Icon(
+                  Icons.check_circle_rounded,
+                  color: IanovaColors.success,
+                  size: 20,
+                ),
+                SizedBox(width: 10),
+                Text('Added to cart'),
+              ],
+            ),
+          ),
+        );
     } on ApiException catch (error) {
       if (!mounted) return;
 
@@ -340,14 +376,19 @@ class _IanovaProductCardState extends State<IanovaProductCard>
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(
-                      Icons.shopping_bag_outlined,
+                  : Icon(
+                      _justAdded
+                          ? Icons.check_rounded
+                          : Icons.shopping_bag_outlined,
                       size: 17,
                     ),
               label: Text(
-                product.stock > 0 ? 'Add to Cart' : 'Sold out',
+                product.stock > 0
+                    ? (_justAdded ? 'Added' : 'Add to Cart')
+                    : 'Sold out',
               ),
               style: FilledButton.styleFrom(
+                backgroundColor: _justAdded ? IanovaColors.success : null,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 textStyle: const TextStyle(
                   fontSize: 12,
