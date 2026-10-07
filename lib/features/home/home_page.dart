@@ -104,6 +104,15 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  void _openSale() {
+    final sale = _products
+        .where((product) => product.discountPercent > 0)
+        .toList()
+      ..sort((a, b) => b.discountPercent.compareTo(a.discountPercent));
+
+    _openProductList('Sale', sale);
+  }
+
   void _openCategory(Category category) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -185,6 +194,7 @@ class _HomePageState extends State<HomePage> {
             child: CategoryRail(
               categories: _categories,
               onSelect: _openCategory,
+              onSale: _openSale,
             ),
           ),
           if (_isLoading)

@@ -10,10 +10,12 @@ class CategoryRail extends StatelessWidget {
     super.key,
     required this.categories,
     required this.onSelect,
+    this.onSale,
   });
 
   final List<Category> categories;
   final ValueChanged<Category> onSelect;
+  final VoidCallback? onSale;
 
   void _openAll(BuildContext context) {
     showModalBottomSheet<void>(
@@ -86,6 +88,18 @@ class CategoryRail extends StatelessWidget {
               size: 24,
             ),
           ),
+          if (onSale != null)
+            _RailTile(
+              label: 'Sale',
+              filled: false,
+              background: IanovaColors.danger,
+              onTap: onSale!,
+              child: const Icon(
+                Icons.local_offer_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
           for (final category in categories)
             _RailTile(
               label: category.name,
@@ -108,8 +122,10 @@ class _RailTile extends StatelessWidget {
     required this.filled,
     required this.onTap,
     required this.child,
+    this.background,
   });
 
+  final Color? background;
   final String label;
   final bool filled;
   final VoidCallback onTap;
@@ -129,7 +145,8 @@ class _RailTile extends StatelessWidget {
               height: 58,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: filled ? IanovaColors.primary : IanovaColors.soft,
+                color: background ??
+                    (filled ? IanovaColors.primary : IanovaColors.soft),
                 shape: BoxShape.circle,
               ),
               child: child,
