@@ -346,6 +346,17 @@ class _IanovaProductCardState extends State<IanovaProductCard>
             ],
           ),
 
+          if (product.optionCount > 1) ...[
+            const SizedBox(height: 2),
+            Text(
+              '${product.optionCount} options',
+              style: const TextStyle(
+                color: IanovaColors.secondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
           if (product.stock > 0 && product.stock <= 5) ...[
             const SizedBox(height: 2),
             Text(

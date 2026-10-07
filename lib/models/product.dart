@@ -15,6 +15,9 @@ class Product {
   final String image;
   final int categoryId;
   final String subcategory;
+  final String color;
+  final String size;
+  final int optionCount;
 
   const Product({
     required this.id,
@@ -33,6 +36,9 @@ class Product {
     required this.image,
     this.categoryId = 0,
     this.subcategory = '',
+    this.color = '',
+    this.size = '',
+    this.optionCount = 1,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -55,6 +61,9 @@ class Product {
       image: json['image']?.toString() ?? '',
       categoryId: int.tryParse(json['category_id'].toString()) ?? 0,
       subcategory: json['subcategory']?.toString().trim() ?? '',
+      color: json['color']?.toString().trim() ?? '',
+      size: json['size']?.toString().trim() ?? '',
+      optionCount: int.tryParse(json['option_count'].toString()) ?? 1,
     );
   }
 

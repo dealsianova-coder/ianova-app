@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/format/color_names.dart';
 import '../../core/format/money.dart';
 import '../../core/network/api_service.dart';
 import '../../core/state/wishlist_controller.dart';
@@ -35,11 +36,14 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   StoreSettings? _settings;
   bool _isLoading = true;
   bool _adding = false;
+  bool _switching = false;
+  late int _currentId;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    _currentId = widget.productId;
     RecentProducts.add(widget.productId);
     _loadProduct();
     _loadSettings();
@@ -51,14 +55,16 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     super.dispose();
   }
 
-  Future<void> _loadProduct() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  Future<void> _loadProduct({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
 
     try {
-      final detail = await _api.getProductDetail(widget.productId);
+      final detail = await _api.getProductDetail(_currentId);
 
       if (!mounted) return;
 
@@ -83,6 +89,25 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         _isLoading = false;
       });
     }
+  }
+
+  /// Switches to another color or size of the same product.
+  Future<void> _switchTo(Product option) async {
+    if (option.id == _currentId || _switching) return;
+
+    setState(() {
+      _currentId = option.id;
+      _switching = true;
+    });
+
+    await _loadProduct(silent: true);
+
+    if (!mounted) return;
+
+    RecentProducts.add(option.id);
+    setState(() {
+      _switching = false;
+    });
   }
 
   Future<void> _loadSettings() async {
@@ -315,6 +340,15 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   ),
                 const SizedBox(height: IanovaSpacing.md),
                 _StockChip(stock: _currentStock),
+                if (detail.options.length > 1) ...[
+                  const SizedBox(height: IanovaSpacing.xl),
+                  _OptionPicker(
+                    current: product,
+                    options: detail.options,
+                    busy: _switching,
+                    onSelect: _switchTo,
+                  ),
+                ],
                 if (detail.hasVariants) ...[
                   const SizedBox(height: IanovaSpacing.xxl),
                   _VariantSelector(
@@ -754,6 +788,195 @@ class _PolicyRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _OptionPicker extends StatelessWidget {
+  const _OptionPicker({
+    required this.current,
+    required this.options,
+    required this.busy,
+    required this.onSelect,
+  });
+
+  final Product current;
+  final List<Product> options;
+  final bool busy;
+  final ValueChanged<Product> onSelect;
+
+  /// The listing to open for a chip: keeps the other choice when it can
+  /// and prefers something in stock.
+  Product _target(
+    List<Product> list,
+    String Function(Product) other,
+    String want,
+  ) {
+    for (final item in list) {
+      if (other(item) == want && item.stock > 0) return item;
+    }
+    for (final item in list) {
+      if (item.stock > 0) return item;
+    }
+    return list.first;
+  }
+
+  Widget _group({
+    required String title,
+    required String value,
+    required Map<String, List<Product>> groups,
+    required String Function(Product) other,
+    required String otherValue,
+    required bool swatches,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text.rich(
+          TextSpan(
+            text: '$title: ',
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              color: IanovaColors.secondary,
+            ),
+            children: [
+              TextSpan(
+                text: value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: IanovaColors.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final entry in groups.entries)
+              _OptionChip(
+                label: entry.key,
+                swatch: swatches ? colorFromName(entry.key) : null,
+                selected: entry.key == value,
+                available: entry.value.any((item) => item.stock > 0),
+                onTap: busy
+                    ? null
+                    : () => onSelect(
+                          _target(entry.value, other, otherValue),
+                        ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = <String, List<Product>>{};
+    final sizes = <String, List<Product>>{};
+
+    for (final option in options) {
+      if (option.color.isNotEmpty) {
+        colors.putIfAbsent(option.color, () => []).add(option);
+      }
+      if (option.size.isNotEmpty) {
+        sizes.putIfAbsent(option.size, () => []).add(option);
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (colors.length > 1)
+          _group(
+            title: 'Color',
+            value: current.color,
+            groups: colors,
+            other: (item) => item.size,
+            otherValue: current.size,
+            swatches: true,
+          ),
+        if (colors.length > 1 && sizes.length > 1)
+          const SizedBox(height: IanovaSpacing.lg),
+        if (sizes.length > 1)
+          _group(
+            title: 'Size',
+            value: current.size,
+            groups: sizes,
+            other: (item) => item.color,
+            otherValue: current.color,
+            swatches: false,
+          ),
+      ],
+    );
+  }
+}
+
+class _OptionChip extends StatelessWidget {
+  const _OptionChip({
+    required this.label,
+    required this.selected,
+    required this.available,
+    required this.onTap,
+    this.swatch,
+  });
+
+  final String label;
+  final bool selected;
+  final bool available;
+  final VoidCallback? onTap;
+  final Color? swatch;
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = !available;
+
+    return InkWell(
+      onTap: disabled ? null : onTap,
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected
+              ? IanovaColors.soft
+              : (disabled ? IanovaColors.background : IanovaColors.surface),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: selected ? IanovaColors.primary : IanovaColors.border,
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (swatch != null) ...[
+              Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: swatch,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.18),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: disabled ? IanovaColors.muted : IanovaColors.primary,
+                decoration: disabled ? TextDecoration.lineThrough : null,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
