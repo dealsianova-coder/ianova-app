@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/network/api_service.dart';
 import '../../core/state/wishlist_controller.dart';
+import '../../models/store_config.dart';
 import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
 import '../../models/product.dart';
@@ -37,6 +38,7 @@ class _HomePageState extends State<HomePage> {
   List<Product> _products = const [];
   List<Category> _categories = const [];
   List<int> _recentIds = const [];
+  StoreConfig _store = StoreConfig.defaults;
 
   bool _isLoading = true;
   String? _error;
@@ -58,6 +60,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadStorefront() async {
     WishlistController.instance.load();
+    _loadStore();
 
     setState(() {
       _isLoading = true;
@@ -91,6 +94,20 @@ class _HomePageState extends State<HomePage> {
         _error = 'Unable to connect to IANOVA.';
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadStore() async {
+    try {
+      final config = await _api.getStoreConfig();
+
+      if (!mounted) return;
+
+      setState(() {
+        _store = config;
+      });
+    } catch (_) {
+      // Keep the defaults when the server has no store config yet.
     }
   }
 
@@ -181,6 +198,26 @@ class _HomePageState extends State<HomePage> {
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
+          if (_store.announcement.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Container(
+                width: double.infinity,
+                color: IanovaColors.primary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: IanovaSpacing.xl,
+                  vertical: 10,
+                ),
+                child: Text(
+                  _store.announcement,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
           SliverToBoxAdapter(
             child: _Header(
               onNotifications: _openNotifications,
@@ -192,9 +229,9 @@ class _HomePageState extends State<HomePage> {
           ),
           SliverToBoxAdapter(
             child: CategoryRail(
-              categories: _categories,
+              categories: _store.showCategories ? _categories : const [],
               onSelect: _openCategory,
-              onSale: _openSale,
+              onSale: _store.showSale ? _openSale : null,
             ),
           ),
           if (_isLoading)
@@ -225,9 +262,11 @@ class _HomePageState extends State<HomePage> {
                     widget.onProductTap?.call(product),
               ),
             ),
-            if (flashDeals.isNotEmpty)
+            if (flashDeals.isNotEmpty && _store.flashActive)
               SliverToBoxAdapter(
                 child: FlashDealsSection(
+                  title: _store.flashTitle,
+                  endsAt: _store.flashEndsAt,
                   products: flashDeals,
                   onSeeAll: () =>
                       _openProductList('Flash deals', flashDeals),
@@ -236,7 +275,7 @@ class _HomePageState extends State<HomePage> {
                   onCartChanged: widget.onCartChanged,
                 ),
               ),
-            if (recent.isNotEmpty)
+            if (recent.isNotEmpty && _store.showRecent)
               SliverToBoxAdapter(
                 child: RecentlyViewedSection(
                   products: recent,
@@ -244,6 +283,7 @@ class _HomePageState extends State<HomePage> {
                       widget.onProductTap?.call(product),
                 ),
               ),
+            if (_store.showPopular) ...[
             SliverToBoxAdapter(
               child: _SectionHeader(
                 title: 'Popular picks',
@@ -281,6 +321,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
+            ],
           ],
         ],
       ),

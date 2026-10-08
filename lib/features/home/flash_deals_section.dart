@@ -18,8 +18,12 @@ class FlashDealsSection extends StatefulWidget {
     required this.onSeeAll,
     required this.onProductTap,
     this.onCartChanged,
+    this.title = 'Flash deals',
+    this.endsAt,
   });
 
+  final String title;
+  final DateTime? endsAt;
   final List<Product> products;
   final VoidCallback onSeeAll;
   final ValueChanged<Product> onProductTap;
@@ -137,26 +141,32 @@ class _FlashDealsSectionState extends State<FlashDealsSection>
                   ),
                 ),
                 const SizedBox(width: IanovaSpacing.md),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Flash deals',
-                        style: TextStyle(
+                        widget.title,
+                        style: const TextStyle(
                           fontSize: 19,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.3,
                         ),
                       ),
-                      Text(
-                        'Limited-time prices',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: IanovaColors.secondary,
+                      if (widget.endsAt != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: _Countdown(endsAt: widget.endsAt!),
+                        )
+                      else
+                        const Text(
+                          'Limited-time prices',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: IanovaColors.secondary,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -201,6 +211,78 @@ class _FlashDealsSectionState extends State<FlashDealsSection>
                   );
                 },
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A live "ends in" timer driven by the end time the admin sets.
+class _Countdown extends StatefulWidget {
+  const _Countdown({required this.endsAt});
+
+  final DateTime endsAt;
+
+  @override
+  State<_Countdown> createState() => _CountdownState();
+}
+
+class _CountdownState extends State<_Countdown> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _two(int value) => value.toString().padLeft(2, '0');
+
+  String _format(Duration left) {
+    final days = left.inDays;
+    final hours = left.inHours % 24;
+    final minutes = left.inMinutes % 60;
+    final seconds = left.inSeconds % 60;
+    final clock = '${_two(hours)}:${_two(minutes)}:${_two(seconds)}';
+
+    return days > 0 ? '${days}d $clock' : clock;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final left = widget.endsAt.difference(DateTime.now());
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      decoration: BoxDecoration(
+        color: IanovaColors.danger.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.schedule_rounded,
+            size: 13,
+            color: IanovaColors.danger,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            left.isNegative ? 'Ended' : 'Ends in ${_format(left)}',
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: IanovaColors.danger,
             ),
           ),
         ],

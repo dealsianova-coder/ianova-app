@@ -68,7 +68,7 @@ class CategoryRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (categories.isEmpty) {
+    if (categories.isEmpty && onSale == null) {
       return const SizedBox.shrink();
     }
 
@@ -78,7 +78,8 @@ class CategoryRail extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: IanovaSpacing.lg),
         children: [
-          _RailTile(
+          if (categories.isNotEmpty)
+            _RailTile(
             label: 'All',
             filled: true,
             onTap: () => _openAll(context),
