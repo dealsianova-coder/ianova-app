@@ -1,3 +1,38 @@
+class HomeBanner {
+  const HomeBanner({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.buttonLabel,
+    required this.image,
+    required this.linkType,
+    required this.linkValue,
+    required this.color,
+  });
+
+  final int id;
+  final String title;
+  final String subtitle;
+  final String buttonLabel;
+  final String image;
+  final String linkType;
+  final String linkValue;
+  final String color;
+
+  factory HomeBanner.fromJson(Map<String, dynamic> json) {
+    return HomeBanner(
+      id: int.tryParse(json['id'].toString()) ?? 0,
+      title: json['title']?.toString() ?? '',
+      subtitle: json['subtitle']?.toString() ?? '',
+      buttonLabel: json['button_label']?.toString() ?? 'Shop now',
+      image: json['image']?.toString() ?? '',
+      linkType: json['link_type']?.toString() ?? 'none',
+      linkValue: json['link_value']?.toString() ?? '',
+      color: json['color']?.toString() ?? 'blush',
+    );
+  }
+}
+
 /// Front-store settings the admin controls (flash deals, sections, announcement).
 class StoreConfig {
   const StoreConfig({
@@ -11,6 +46,7 @@ class StoreConfig {
     this.announcement = '',
     this.supportPhone = '',
     this.supportEmail = '',
+    this.banners = const [],
   });
 
   final bool flashActive;
@@ -23,6 +59,7 @@ class StoreConfig {
   final String announcement;
   final String supportPhone;
   final String supportEmail;
+  final List<HomeBanner> banners;
 
   static const defaults = StoreConfig();
 
@@ -45,6 +82,14 @@ class StoreConfig {
     final support = section('support');
     final endsRaw = flash['ends_at']?.toString();
     final text = announcement['text']?.toString().trim() ?? '';
+    final rawBanners = json['banners'];
+    final banners = rawBanners is List
+        ? rawBanners
+            .whereType<Map>()
+            .map((item) => HomeBanner.fromJson(Map<String, dynamic>.from(item)))
+            .where((banner) => banner.title.isNotEmpty)
+            .toList()
+        : <HomeBanner>[];
 
     return StoreConfig(
       flashActive: flag(flash, 'active', true),
@@ -59,6 +104,7 @@ class StoreConfig {
       announcement: flag(announcement, 'enabled', false) ? text : '',
       supportPhone: support['phone']?.toString().trim() ?? '',
       supportEmail: support['email']?.toString().trim() ?? '',
+      banners: banners,
     );
   }
 }

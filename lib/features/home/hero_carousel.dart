@@ -6,6 +6,7 @@ import '../../core/format/money.dart';
 import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
 import '../../models/product.dart';
+import '../../models/store_config.dart';
 import '../../widgets/ianova_product_image.dart';
 
 /// Auto-playing banners. Each product floats gently and its discount pops in.
@@ -14,10 +15,14 @@ class HeroCarousel extends StatefulWidget {
     super.key,
     required this.products,
     required this.onProductTap,
+    this.banners = const [],
+    this.onBannerTap,
   });
 
   final List<Product> products;
   final ValueChanged<Product> onProductTap;
+  final List<HomeBanner> banners;
+  final ValueChanged<HomeBanner>? onBannerTap;
 
   @override
   State<HeroCarousel> createState() => _HeroCarouselState();
@@ -37,6 +42,28 @@ class _HeroCarouselState extends State<HeroCarousel> {
 
   List<Product> get _items => widget.products.take(3).toList();
 
+  List<HomeBanner> get _banners => widget.banners.take(6).toList();
+
+  int get _count => _banners.isNotEmpty ? _banners.length : _items.length;
+
+  Color _bannerColor(String key) {
+    if (key.startsWith('#') && key.length == 7) {
+      final value = int.tryParse(key.substring(1), radix: 16);
+      if (value != null) return Color(0xFF000000 | value);
+    }
+
+    switch (key) {
+      case 'sky':
+        return IanovaColors.sky;
+      case 'sand':
+        return IanovaColors.sand;
+      case 'rose':
+        return IanovaColors.roseTint;
+      default:
+        return IanovaColors.blush;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -54,7 +81,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted || _dragging || !_controller.hasClients) return;
-      if (_items.length < 2) return;
+      if (_count < 2) return;
 
       _controller.nextPage(
         duration: const Duration(milliseconds: 800),
@@ -78,12 +105,14 @@ class _HeroCarouselState extends State<HeroCarousel> {
   @override
   Widget build(BuildContext context) {
     final items = _items;
+    final banners = _banners;
+    final count = _count;
 
-    if (items.isEmpty) {
+    if (count == 0) {
       return const SizedBox.shrink();
     }
 
-    final activeDot = _index % items.length;
+    final activeDot = _index % count;
 
     return Column(
       children: [
@@ -95,30 +124,37 @@ class _HeroCarouselState extends State<HeroCarousel> {
               controller: _controller,
               onPageChanged: (value) => setState(() => _index = value),
               itemBuilder: (context, index) {
-                final slot = index % items.length;
-                final product = items[slot];
+                final slot = index % count;
 
                 return Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: IanovaSpacing.xl,
                   ),
-                  child: _HeroSlide(
-                    product: product,
-                    color: _colors[slot % _colors.length],
-                    active: index == _index,
-                    onTap: () => widget.onProductTap(product),
-                  ),
+                  child: banners.isNotEmpty
+                      ? _HeroSlide(
+                          banner: banners[slot],
+                          color: _bannerColor(banners[slot].color),
+                          active: index == _index,
+                          onTap: () =>
+                              widget.onBannerTap?.call(banners[slot]),
+                        )
+                      : _HeroSlide(
+                          product: items[slot],
+                          color: _colors[slot % _colors.length],
+                          active: index == _index,
+                          onTap: () => widget.onProductTap(items[slot]),
+                        ),
                 );
               },
             ),
           ),
         ),
-        if (items.length > 1) ...[
+        if (count > 1) ...[
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              for (var i = 0; i < items.length; i++)
+              for (var i = 0; i < count; i++)
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   margin: const EdgeInsets.symmetric(horizontal: 3),
@@ -142,13 +178,15 @@ class _HeroCarouselState extends State<HeroCarousel> {
 
 class _HeroSlide extends StatefulWidget {
   const _HeroSlide({
-    required this.product,
+    this.product,
+    this.banner,
     required this.color,
     required this.active,
     required this.onTap,
   });
 
-  final Product product;
+  final Product? product;
+  final HomeBanner? banner;
   final Color color;
   final bool active;
   final VoidCallback onTap;
@@ -202,7 +240,14 @@ class _HeroSlideState extends State<_HeroSlide>
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
-    final hasDiscount = product.discountPercent > 0;
+    final banner = widget.banner;
+    final title = banner?.title ?? product?.name ?? '';
+    final image = banner?.image ?? product?.image ?? '';
+    final emoji = product?.emoji ?? '';
+    final bgColor = product?.bgColor ?? '#FDE8EF';
+    final isFlash = product?.isFlashDeal ?? false;
+    final buttonLabel = banner?.buttonLabel ?? 'Shop now';
+    final hasDiscount = product != null && product.discountPercent > 0;
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -235,16 +280,16 @@ class _HeroSlideState extends State<_HeroSlide>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _TagChip(
-                          label: product.isFlashDeal
+                          label: isFlash
                               ? 'Flash deal'
                               : 'Featured',
-                          icon: product.isFlashDeal
+                          icon: isFlash
                               ? Icons.bolt_rounded
                               : Icons.auto_awesome_rounded,
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          product.name,
+                          title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -260,7 +305,7 @@ class _HeroSlideState extends State<_HeroSlide>
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Text(
-                              formatKsh(product.price),
+                              banner != null ? banner.subtitle : formatKsh(product!.price),
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
@@ -271,7 +316,7 @@ class _HeroSlideState extends State<_HeroSlide>
                               const SizedBox(width: 6),
                               Flexible(
                                 child: Text(
-                                  formatKsh(product.originalPrice),
+                                  formatKsh(product!.originalPrice),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
@@ -298,10 +343,10 @@ class _HeroSlideState extends State<_HeroSlide>
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text('Shop now'),
+                              Text(buttonLabel),
                               SizedBox(width: 6),
                               Icon(Icons.arrow_forward_rounded, size: 16),
                             ],
@@ -344,9 +389,9 @@ class _HeroSlideState extends State<_HeroSlide>
                             ],
                           ),
                           child: IanovaProductImage(
-                            image: product.image,
-                            emoji: product.emoji,
-                            backgroundColor: product.bgColor,
+                            image: image,
+                            emoji: emoji,
+                            backgroundColor: bgColor,
                             width: 112,
                             height: 112,
                             borderRadius: BorderRadius.circular(25),
@@ -359,7 +404,7 @@ class _HeroSlideState extends State<_HeroSlide>
                             child: ScaleTransition(
                               scale: _popScale,
                               child: _DiscountBadge(
-                                text: '-${product.discountPercent}%',
+                                text: '-${product?.discountPercent ?? 0}%',
                               ),
                             ),
                           ),

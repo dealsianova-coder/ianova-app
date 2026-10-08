@@ -8,6 +8,7 @@ import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
 import '../../models/order.dart';
 import '../auth/auth_user.dart';
+import '../admin/admin_page.dart';
 import '../auth/login_page.dart';
 import '../orders/orders_page.dart';
 import '../wishlist/wishlist_page.dart';
@@ -145,6 +146,14 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  void _openAdmin() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const AdminPage(),
+      ),
+    );
+  }
+
   void _openSettings() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -171,6 +180,11 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Admin',
+            onPressed: _openAdmin,
+            icon: const Icon(Icons.admin_panel_settings_outlined),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: IanovaSpacing.md),
             child: IconButton(

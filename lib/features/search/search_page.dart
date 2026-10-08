@@ -11,8 +11,10 @@ class SearchPage extends StatefulWidget {
     super.key,
     this.onProductTap,
     this.onCartChanged,
+    this.initialQuery = '',
   });
 
+  final String initialQuery;
   final ValueChanged<Product>? onProductTap;
   final VoidCallback? onCartChanged;
 
@@ -32,6 +34,8 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void initState() {
     super.initState();
+    _controller.text = widget.initialQuery;
+    _query = widget.initialQuery.trim();
     _loadProducts();
   }
 

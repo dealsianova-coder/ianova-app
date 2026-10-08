@@ -12,6 +12,7 @@ import '../search/search_page.dart';
 import '../wishlist/wishlist_page.dart';
 import '../../core/storage/recent_products.dart';
 import '../categories/categories_page.dart';
+import '../products/product_detail_page.dart';
 import 'category_rail.dart';
 import 'flash_deals_section.dart';
 import 'hero_carousel.dart';
@@ -119,6 +120,46 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _recentIds = ids;
     });
+  }
+
+  void _openBanner(HomeBanner banner) {
+    switch (banner.linkType) {
+      case 'product':
+        final productId = int.tryParse(banner.linkValue);
+
+        if (productId == null || productId < 1) return;
+
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ProductDetailPage(
+              productId: productId,
+              onCartChanged: widget.onCartChanged,
+            ),
+          ),
+        );
+        break;
+      case 'category':
+        final categoryId = int.tryParse(banner.linkValue);
+
+        for (final category in _categories) {
+          if (category.id == categoryId) {
+            _openCategory(category);
+            return;
+          }
+        }
+        break;
+      case 'search':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SearchPage(
+              initialQuery: banner.linkValue,
+              onProductTap: widget.onProductTap,
+              onCartChanged: widget.onCartChanged,
+            ),
+          ),
+        );
+        break;
+    }
   }
 
   void _openSale() {
@@ -260,6 +301,8 @@ class _HomePageState extends State<HomePage> {
                 products: flashDeals.isNotEmpty ? flashDeals : _products,
                 onProductTap: (product) =>
                     widget.onProductTap?.call(product),
+                banners: _store.banners,
+                onBannerTap: _openBanner,
               ),
             ),
             if (flashDeals.isNotEmpty && _store.flashActive)
