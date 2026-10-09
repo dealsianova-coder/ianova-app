@@ -11,7 +11,7 @@ import '../auth/auth_user.dart';
 import '../admin/admin_page.dart';
 import '../auth/login_page.dart';
 import '../orders/orders_page.dart';
-import '../seller/seller_apply_page.dart';
+import '../seller/seller_hub_page.dart';
 import '../wishlist/wishlist_page.dart';
 import 'addresses_page.dart';
 import 'settings_page.dart';
@@ -158,7 +158,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void _openSeller() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const SellerApplyPage(),
+        builder: (_) => const SellerHubPage(),
       ),
     );
   }
@@ -991,7 +991,7 @@ class _SellCard extends StatelessWidget {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Apply to open your own store',
+                      'Apply, sign in and message our team',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
