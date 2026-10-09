@@ -11,6 +11,7 @@ import '../auth/auth_user.dart';
 import '../admin/admin_page.dart';
 import '../auth/login_page.dart';
 import '../orders/orders_page.dart';
+import '../seller/seller_apply_page.dart';
 import '../wishlist/wishlist_page.dart';
 import 'addresses_page.dart';
 import 'settings_page.dart';
@@ -154,6 +155,14 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  void _openSeller() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const SellerApplyPage(),
+      ),
+    );
+  }
+
   void _openSettings() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -226,6 +235,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     onAddresses: _openAddresses,
                     onSettings: _openSettings,
                   ),
+                  const SizedBox(height: IanovaSpacing.lg),
+                  _SellCard(onTap: _openSeller),
                   const SizedBox(height: IanovaSpacing.xl),
                   _AccountActivityCard(
                     order: _latestOrder,
@@ -930,6 +941,73 @@ class _SectionHeading extends StatelessWidget {
       style: const TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+}
+
+
+class _SellCard extends StatelessWidget {
+  const _SellCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: IanovaColors.sand,
+      borderRadius: BorderRadius.circular(IanovaSpacing.radiusXLarge),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(IanovaSpacing.radiusXLarge),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(IanovaSpacing.lg),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.storefront_outlined,
+                  color: IanovaColors.primary,
+                ),
+              ),
+              const SizedBox(width: IanovaSpacing.md),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sell on IANOVA',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: IanovaColors.primary,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Apply to open your own store',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: IanovaColors.secondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: IanovaColors.secondary,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
