@@ -224,6 +224,40 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     return const Center(child: Text('Product not found.'));
   }
 
+  /// One slide per color of this product, so the main photo can be swiped.
+  /// Returns an empty list when the product has no other colors.
+  List<Product> _colorSlides(List<Product> options, Product current) {
+    if (current.color.isEmpty) return const [];
+
+    final byColor = <String, Product>{};
+
+    for (final item in options) {
+      if (item.color.isEmpty) continue;
+
+      final existing = byColor[item.color];
+
+      if (existing == null) {
+        byColor[item.color] = item;
+        continue;
+      }
+
+      // Several sizes in one color: show the one matching the current size,
+      // otherwise one that is in stock.
+      final sameSize = item.size == current.size;
+      final existingSameSize = existing.size == current.size;
+
+      if (sameSize != existingSameSize) {
+        if (sameSize) byColor[item.color] = item;
+      } else if (item.stock > 0 && existing.stock <= 0) {
+        byColor[item.color] = item;
+      }
+    }
+
+    byColor[current.color] = current;
+
+    return byColor.length > 1 ? byColor.values.toList() : const [];
+  }
+
   Widget _buildContent(ProductDetail detail) {
     final product = detail.product;
     final price = _currentPrice;
@@ -246,6 +280,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             backgroundColor: product.bgColor,
             discountPercent: percent,
             isFlashDeal: product.isFlashDeal,
+            slides: _colorSlides(detail.options, product),
+            activeId: _currentId,
+            busy: _switching,
+            onSlide: _switchTo,
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -431,7 +469,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   }
 }
 
-class _Gallery extends StatelessWidget {
+class _Gallery extends StatefulWidget {
   const _Gallery({
     required this.productId,
     required this.image,
@@ -439,6 +477,10 @@ class _Gallery extends StatelessWidget {
     required this.backgroundColor,
     required this.discountPercent,
     required this.isFlashDeal,
+    this.slides = const [],
+    this.activeId = 0,
+    this.busy = false,
+    this.onSlide,
   });
 
   final int productId;
@@ -448,23 +490,166 @@ class _Gallery extends StatelessWidget {
   final int discountPercent;
   final bool isFlashDeal;
 
+  /// One product per color. With two or more, the photo can be swiped.
+  final List<Product> slides;
+  final int activeId;
+  final bool busy;
+  final ValueChanged<Product>? onSlide;
+
+  @override
+  State<_Gallery> createState() => _GalleryState();
+}
+
+class _GalleryState extends State<_Gallery> {
+  static const double _height = 400;
+  static const BorderRadius _imageRadius = BorderRadius.vertical(
+    bottom: Radius.circular(32),
+  );
+
+  late final PageController _controller;
+
+  bool get _swipeable => widget.slides.length > 1;
+
+  int get _index {
+    final i = widget.slides.indexWhere((slide) => slide.id == widget.activeId);
+
+    return i < 0 ? 0 : i;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController(initialPage: _index);
+  }
+
+  @override
+  void didUpdateWidget(covariant _Gallery oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (!_swipeable || !_controller.hasClients) return;
+
+    // A color chip was tapped (or a swipe could not switch): follow it.
+    final page = _controller.page?.round() ?? _index;
+
+    if (page != _index) {
+      _controller.animateToPage(
+        _index,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _go(int delta) {
+    if (widget.busy) return;
+
+    final target = _index + delta;
+
+    if (target < 0 || target >= widget.slides.length) return;
+
+    _controller.animateToPage(
+      target,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOut,
+    );
+  }
+
+  Widget _photo() {
+    if (!_swipeable) {
+      return IanovaProductImage(
+        image: widget.image,
+        emoji: widget.emoji,
+        backgroundColor: widget.backgroundColor,
+        width: double.infinity,
+        height: _height,
+        borderRadius: _imageRadius,
+      );
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      height: _height,
+      child: PageView.builder(
+        controller: _controller,
+        physics: widget.busy
+            ? const NeverScrollableScrollPhysics()
+            : const PageScrollPhysics(),
+        itemCount: widget.slides.length,
+        onPageChanged: (i) {
+          final slide = widget.slides[i];
+
+          if (slide.id != widget.activeId) {
+            widget.onSlide?.call(slide);
+          }
+        },
+        itemBuilder: (_, i) {
+          final slide = widget.slides[i];
+
+          return IanovaProductImage(
+            image: slide.image,
+            emoji: slide.emoji,
+            backgroundColor: slide.bgColor,
+            width: double.infinity,
+            height: _height,
+            borderRadius: _imageRadius,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _dots() {
+    final index = _index;
+
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 20,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < widget.slides.length; i++)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: i == index ? 18 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(
+                      alpha: i == index ? 1 : 0.55,
+                    ),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.of(context).padding.top;
     final wishlist = WishlistController.instance;
+    final index = _index;
 
     return Stack(
       children: [
-        IanovaProductImage(
-          image: image,
-          emoji: emoji,
-          backgroundColor: backgroundColor,
-          width: double.infinity,
-          height: 400,
-          borderRadius: const BorderRadius.vertical(
-            bottom: Radius.circular(32),
-          ),
-        ),
+        _photo(),
         Positioned(
           top: top + 8,
           left: 16,
@@ -480,7 +665,7 @@ class _Gallery extends StatelessWidget {
           child: ListenableBuilder(
             listenable: wishlist,
             builder: (context, _) {
-              final saved = wishlist.contains(productId);
+              final saved = wishlist.contains(widget.productId);
 
               return _RoundButton(
                 icon: saved
@@ -489,7 +674,7 @@ class _Gallery extends StatelessWidget {
                 color: saved ? IanovaColors.danger : null,
                 tooltip: 'Wishlist',
                 onTap: () async {
-                  final message = await wishlist.toggle(productId);
+                  final message = await wishlist.toggle(widget.productId);
 
                   if (message != null && context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -501,17 +686,38 @@ class _Gallery extends StatelessWidget {
             },
           ),
         ),
-        if (discountPercent > 0)
+        if (_swipeable && index > 0)
+          Positioned(
+            left: 12,
+            top: _height / 2 - 21,
+            child: _RoundButton(
+              icon: Icons.chevron_left_rounded,
+              tooltip: 'Previous color',
+              onTap: () => _go(-1),
+            ),
+          ),
+        if (_swipeable && index < widget.slides.length - 1)
+          Positioned(
+            right: 12,
+            top: _height / 2 - 21,
+            child: _RoundButton(
+              icon: Icons.chevron_right_rounded,
+              tooltip: 'Next color',
+              onTap: () => _go(1),
+            ),
+          ),
+        if (_swipeable) _dots(),
+        if (widget.discountPercent > 0)
           Positioned(
             left: 16,
             bottom: 16,
             child: _Pill(
-              label: '-$discountPercent%',
+              label: '-${widget.discountPercent}%',
               background: IanovaColors.danger,
               foreground: Colors.white,
             ),
           ),
-        if (isFlashDeal)
+        if (widget.isFlashDeal)
           const Positioned(
             right: 16,
             bottom: 16,
