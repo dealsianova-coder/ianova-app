@@ -386,15 +386,15 @@ class _Header extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         IanovaSpacing.xl,
-        IanovaSpacing.lg,
         IanovaSpacing.xl,
-        IanovaSpacing.sm,
+        IanovaSpacing.xl,
+        IanovaSpacing.md,
       ),
       child: Row(
         children: [
           Image.asset(
             'assets/images/ianova_wordmark.png',
-            height: 34,
+            height: 40,
             fit: BoxFit.contain,
             errorBuilder: (_, _, _) {
               return const Icon(

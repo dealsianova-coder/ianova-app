@@ -111,9 +111,12 @@ class _IanovaShellState extends State<IanovaShell> {
     ];
 
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: pages,
+      body: SafeArea(
+        bottom: false,
+        child: IndexedStack(
+          index: _currentIndex,
+          children: pages,
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
