@@ -6,7 +6,7 @@ import '../../core/format/money.dart';
 import '../../core/state/app_badges.dart';
 import '../../core/theme/ianova_theme.dart';
 import 'seller_inbox_view.dart';
-import 'seller_models.dart';
+import 'seller_models.dart' hide SellerSummary, SellerProduct, SellerOrder;
 import 'seller_ops_service.dart';
 import 'seller_service.dart';
 
@@ -53,12 +53,14 @@ class SellerDashboard extends StatefulWidget {
     required this.service,
     required this.onStatus,
     required this.onExpired,
+    this.onSignOut,
   });
 
   final SellerSession session;
   final SellerService service;
   final ValueChanged<String> onStatus;
   final VoidCallback onExpired;
+  final VoidCallback? onSignOut;
 
   @override
   State<SellerDashboard> createState() => _SellerDashboardState();
@@ -167,6 +169,15 @@ class _SellerDashboardState extends State<SellerDashboard>
                   child: const Text('Request review'),
                 ),
               ],
+            ),
+          ),
+        if (widget.onSignOut != null)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: widget.onSignOut,
+              icon: const Icon(Icons.logout_rounded, size: 18),
+              label: const Text('Sign out'),
             ),
           ),
         TabBar(
