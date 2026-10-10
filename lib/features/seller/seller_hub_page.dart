@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/ianova_theme.dart';
+import 'seller_dashboard.dart';
 import 'seller_forms.dart';
 import 'seller_inbox_view.dart';
 import 'seller_models.dart';
@@ -115,7 +116,7 @@ class _SellerHubPageState extends State<SellerHubPage> {
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
         actions: [
-          if (session != null)
+          if (session != null && session.status != 'approved')
             IconButton(
               tooltip: 'Sign out',
               onPressed: _confirmSignOut,
@@ -158,12 +159,20 @@ class _SellerHubPageState extends State<SellerHubPage> {
                       ],
                     ),
                   )
-                : SellerInboxView(
-                    session: session,
-                    service: _service,
-                    onStatus: _onStatus,
-                    onExpired: _signOut,
-                  ),
+                : session.status == 'approved'
+                    ? SellerDashboard(
+                        session: session,
+                        service: _service,
+                        onStatus: _onStatus,
+                        onExpired: _signOut,
+                        onSignOut: _confirmSignOut,
+                      )
+                    : SellerInboxView(
+                        session: session,
+                        service: _service,
+                        onStatus: _onStatus,
+                        onExpired: _signOut,
+                      ),
       ),
     );
   }

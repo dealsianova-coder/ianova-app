@@ -153,6 +153,141 @@ class SellerService {
     return _threadFrom(data);
   }
 
+  // ---- Seller admin: products, orders, sales, account ----------------------
+
+  SellerCatalog _catalogFrom(Map<String, dynamic> data) {
+    final products = (data['products'] as List?) ?? const [];
+    final categories = (data['categories'] as List?) ?? const [];
+
+    return SellerCatalog(
+      products: products
+          .whereType<Map>()
+          .map((p) => SellerProduct.fromJson(Map<String, dynamic>.from(p)))
+          .toList(),
+      categories: categories.whereType<Map>().map((c) {
+        return SellerCategory(
+          id: int.tryParse(c['id']?.toString() ?? '') ?? 0,
+          name: c['name']?.toString() ?? '',
+        );
+      }).toList(),
+    );
+  }
+
+  Future<SellerCatalog> fetchCatalog(String token) async {
+    return _catalogFrom(await _send('GET', 'seller_products.php', token: token));
+  }
+
+  Future<SellerCatalog> saveProduct(
+    String token, {
+    int? id,
+    required String name,
+    required int categoryId,
+    required double price,
+    double? originalPrice,
+    required int stock,
+    required String description,
+  }) async {
+    return _catalogFrom(
+      await _send(
+        'POST',
+        'seller_products.php',
+        token: token,
+        body: {
+          'action': 'save',
+          if (id != null) 'id': id,
+          'name': name.trim(),
+          'category_id': categoryId,
+          'price': price,
+          'original_price': originalPrice,
+          'stock': stock,
+          'description': description.trim(),
+        },
+      ),
+    );
+  }
+
+  Future<SellerCatalog> setStock(String token, int id, int stock) async {
+    return _catalogFrom(
+      await _send(
+        'POST',
+        'seller_products.php',
+        token: token,
+        body: {'action': 'stock', 'id': id, 'stock': stock},
+      ),
+    );
+  }
+
+  Future<SellerCatalog> deleteProduct(String token, int id) async {
+    return _catalogFrom(
+      await _send(
+        'POST',
+        'seller_products.php',
+        token: token,
+        body: {'action': 'delete', 'id': id},
+      ),
+    );
+  }
+
+  Future<List<SellerOrder>> fetchOrders(String token) async {
+    final data = await _send('GET', 'seller_orders.php', token: token);
+    final raw = (data['orders'] as List?) ?? const [];
+
+    return raw
+        .whereType<Map>()
+        .map((o) => SellerOrder.fromJson(Map<String, dynamic>.from(o)))
+        .toList();
+  }
+
+  Future<SellerSummary> fetchSummary(String token) async {
+    return SellerSummary.fromJson(
+      await _send('GET', 'seller_summary.php', token: token),
+    );
+  }
+
+  Future<SellerProfile> fetchProfile(String token) async {
+    return SellerProfile.fromJson(
+      await _send('GET', 'seller_account.php', token: token),
+    );
+  }
+
+  Future<SellerProfile> saveProfile(
+    String token, {
+    required String businessName,
+    required String phone,
+    required String description,
+  }) async {
+    return SellerProfile.fromJson(
+      await _send(
+        'POST',
+        'seller_account.php',
+        token: token,
+        body: {
+          'action': 'profile',
+          'business_name': businessName.trim(),
+          'phone': phone.trim(),
+          'business_description': description.trim(),
+        },
+      ),
+    );
+  }
+
+  Future<void> changePassword(
+    String token, {
+    required String current,
+    required String next,
+  }) async {
+    await _send(
+      'POST',
+      'seller_account.php',
+      token: token,
+      body: {
+        'action': 'password',
+        'current_password': current,
+        'new_password': next,
+      },
+    );
+  }
+
   void dispose() {
     _client.close();
   }
