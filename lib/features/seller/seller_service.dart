@@ -160,6 +160,7 @@ class SellerService {
     final categories = (data['categories'] as List?) ?? const [];
 
     return SellerCatalog(
+      autoApprove: data['auto_approve'] == true,
       products: products
           .whereType<Map>()
           .map((p) => SellerProduct.fromJson(Map<String, dynamic>.from(p)))
@@ -186,24 +187,80 @@ class SellerService {
     double? originalPrice,
     required int stock,
     required String description,
+    required String subcategory,
+    required String color,
+    required String size,
+    required String emoji,
+    required String bgColor,
+    required bool isFlashDeal,
+    String? imagePath,
   }) async {
-    return _catalogFrom(
-      await _send(
-        'POST',
-        'seller_products.php',
-        token: token,
-        body: {
-          'action': 'save',
-          if (id != null) 'id': id,
-          'name': name.trim(),
-          'category_id': categoryId,
-          'price': price,
-          'original_price': originalPrice,
-          'stock': stock,
-          'description': description.trim(),
-        },
-      ),
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$_baseUrl/api/seller_products.php'),
     );
+
+    request.headers['Authorization'] = 'Bearer $token';
+    request.headers['Accept'] = 'application/json';
+    request.fields.addAll({
+      'action': 'save',
+      if (id != null) 'id': '$id',
+      'name': name.trim(),
+      'category_id': '$categoryId',
+      'price': '$price',
+      'original_price': originalPrice == null ? '' : '$originalPrice',
+      'stock': '$stock',
+      'description': description.trim(),
+      'subcategory': subcategory.trim(),
+      'color': color.trim(),
+      'size': size.trim(),
+      'emoji': emoji.trim(),
+      'bg_color': bgColor,
+      'is_flash_deal': isFlashDeal ? '1' : '0',
+    });
+
+    if (imagePath != null) {
+      request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+    }
+
+    final http.Response response;
+
+    try {
+      response = await http.Response.fromStream(
+        await _client.send(request).timeout(const Duration(seconds: 90)),
+      );
+    } catch (_) {
+      throw const SellerApplyException(
+        'Could not reach the server. Check your connection and try again.',
+      );
+    }
+
+    Map<String, dynamic> data = {};
+
+    try {
+      final decoded = jsonDecode(response.body);
+
+      if (decoded is Map) {
+        data = Map<String, dynamic>.from(decoded);
+      }
+    } catch (_) {}
+
+    if (response.statusCode == 401) {
+      throw SellerApplyException(
+        data['error']?.toString() ?? 'Please sign in again.',
+        sessionExpired: true,
+      );
+    }
+
+    if (response.statusCode < 200 ||
+        response.statusCode >= 300 ||
+        data['success'] != true) {
+      throw SellerApplyException(
+        data['error']?.toString() ?? 'Could not save the product.',
+      );
+    }
+
+    return _catalogFrom(data);
   }
 
   Future<SellerCatalog> setStock(String token, int id, int stock) async {

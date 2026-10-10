@@ -79,6 +79,12 @@ class SellerProduct {
     required this.status,
     required this.description,
     required this.emoji,
+    required this.bgColor,
+    required this.isFlashDeal,
+    required this.image,
+    required this.subcategory,
+    required this.color,
+    required this.size,
   });
 
   final int id;
@@ -90,6 +96,12 @@ class SellerProduct {
   final String status;
   final String description;
   final String emoji;
+  final String bgColor;
+  final bool isFlashDeal;
+  final String image;
+  final String subcategory;
+  final String color;
+  final String size;
 
   factory SellerProduct.fromJson(Map<String, dynamic> j) {
     return SellerProduct(
@@ -103,15 +115,26 @@ class SellerProduct {
       status: j['status']?.toString() ?? 'pending',
       description: j['description']?.toString() ?? '',
       emoji: j['emoji']?.toString() ?? '',
+      bgColor: j['bg_color']?.toString() ?? '#EFF3EC',
+      isFlashDeal: _asInt(j['is_flash_deal']) == 1,
+      image: j['image']?.toString() ?? '',
+      subcategory: j['subcategory']?.toString() ?? '',
+      color: j['color']?.toString() ?? '',
+      size: j['size']?.toString() ?? '',
     );
   }
 }
 
 class SellerCatalog {
-  const SellerCatalog({required this.products, required this.categories});
+  const SellerCatalog({
+    required this.products,
+    required this.categories,
+    this.autoApprove = false,
+  });
 
   final List<SellerProduct> products;
   final List<SellerCategory> categories;
+  final bool autoApprove;
 }
 
 class SellerOrderItem {

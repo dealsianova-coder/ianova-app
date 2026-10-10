@@ -1,5 +1,9 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
 
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../core/config/api_config.dart';
 import '../../core/format/money.dart';
 import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
@@ -188,6 +192,7 @@ class _SellerProductsTabState extends State<SellerProductsTab> {
                         decoration: sellerCardDecoration(),
                         child: ListTile(
                           onTap: () => _openForm(p),
+                          leading: _ProductThumb(product: p),
                           contentPadding: const EdgeInsets.fromLTRB(16, 6, 4, 6),
                           title: Text(
                             p.name,
@@ -247,6 +252,59 @@ class _SellerProductsTabState extends State<SellerProductsTab> {
   }
 }
 
+Color _hexColor(String hex, [Color fallback = const Color(0xFFEFF3EC)]) {
+  final clean = hex.replaceFirst('#', '');
+
+  if (clean.length != 6) return fallback;
+
+  final value = int.tryParse(clean, radix: 16);
+
+  return value == null ? fallback : Color(0xFF000000 | value);
+}
+
+class _ProductThumb extends StatelessWidget {
+  const _ProductThumb({required this.product, this.size = 52});
+
+  final SellerProduct product;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Center(
+      child: Text(
+        product.emoji.isEmpty ? '📦' : product.emoji,
+        style: TextStyle(fontSize: size * 0.5),
+      ),
+    );
+
+    return Container(
+      width: size,
+      height: size,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: _hexColor(product.bgColor),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: product.image.isEmpty
+          ? fallback
+          : Image.network(
+              IanovaApiConfig.imageUrl(product.image),
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => fallback,
+            ),
+    );
+  }
+}
+
+const _swatches = <String>[
+  '#EFF3EC',
+  '#E6F0FF',
+  '#FDE8EF',
+  '#FFF1D6',
+  '#F3F4F7',
+  '#FFF1F4',
+];
+
 class SellerProductFormPage extends StatefulWidget {
   const SellerProductFormPage({
     super.key,
@@ -274,7 +332,14 @@ class _SellerProductFormPageState extends State<SellerProductFormPage> {
   late final TextEditingController _original;
   late final TextEditingController _stock;
   late final TextEditingController _description;
+  late final TextEditingController _subcategory;
+  late final TextEditingController _color;
+  late final TextEditingController _size;
+  late final TextEditingController _emoji;
   int? _categoryId;
+  String _bgColor = _swatches.first;
+  bool _flash = false;
+  String? _pickedPath;
   bool _saving = false;
 
   @override
@@ -294,6 +359,12 @@ class _SellerProductFormPageState extends State<SellerProductFormPage> {
     _original = TextEditingController(text: number(p?.originalPrice));
     _stock = TextEditingController(text: p == null ? '' : '${p.stock}');
     _description = TextEditingController(text: p?.description ?? '');
+    _subcategory = TextEditingController(text: p?.subcategory ?? '');
+    _color = TextEditingController(text: p?.color ?? '');
+    _size = TextEditingController(text: p?.size ?? '');
+    _emoji = TextEditingController(text: p?.emoji ?? '📦');
+    _bgColor = (p?.bgColor.isNotEmpty ?? false) ? p!.bgColor : _swatches.first;
+    _flash = p?.isFlashDeal ?? false;
 
     final ids = widget.categories.map((c) => c.id).toSet();
 
@@ -307,7 +378,31 @@ class _SellerProductFormPageState extends State<SellerProductFormPage> {
     _original.dispose();
     _stock.dispose();
     _description.dispose();
+    _subcategory.dispose();
+    _color.dispose();
+    _size.dispose();
+    _emoji.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
+
+      if (file != null && mounted) {
+        setState(() => _pickedPath = file.path);
+      }
+    } catch (_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open your photos.')),
+      );
+    }
   }
 
   Future<void> _save() async {
@@ -331,6 +426,13 @@ class _SellerProductFormPageState extends State<SellerProductFormPage> {
             : double.tryParse(_original.text.trim()),
         stock: int.tryParse(_stock.text.trim()) ?? 0,
         description: _description.text,
+        subcategory: _subcategory.text,
+        color: _color.text,
+        size: _size.text,
+        emoji: _emoji.text,
+        bgColor: _bgColor,
+        isFlashDeal: _flash,
+        imagePath: _pickedPath,
       ),
     );
 
@@ -340,10 +442,49 @@ class _SellerProductFormPageState extends State<SellerProductFormPage> {
 
     if (catalog != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saved. Our team will review the listing.')),
+        SnackBar(
+          content: Text(
+            catalog.autoApprove
+                ? 'Saved. Your listing is live.'
+                : 'Saved. Our team will review the listing.',
+          ),
+        ),
       );
       Navigator.of(context).pop(catalog);
     }
+  }
+
+  Widget _photoPreview() {
+    final p = widget.product;
+    final Widget content;
+
+    if (_pickedPath != null) {
+      content = Image.file(File(_pickedPath!), fit: BoxFit.cover);
+    } else if (p != null && p.image.isNotEmpty) {
+      content = Image.network(
+        IanovaApiConfig.imageUrl(p.image),
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(Icons.image_outlined),
+      );
+    } else {
+      content = Center(
+        child: Text(
+          _emoji.text.isEmpty ? '📦' : _emoji.text,
+          style: const TextStyle(fontSize: 44),
+        ),
+      );
+    }
+
+    return Container(
+      width: 112,
+      height: 112,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: _hexColor(_bgColor),
+        borderRadius: BorderRadius.circular(IanovaSpacing.radiusLarge),
+      ),
+      child: content,
+    );
   }
 
   @override
@@ -364,6 +505,38 @@ class _SellerProductFormPageState extends State<SellerProductFormPage> {
           child: ListView(
             padding: const EdgeInsets.all(IanovaSpacing.xl),
             children: [
+              Row(
+                children: [
+                  _photoPreview(),
+                  const SizedBox(width: IanovaSpacing.lg),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _saving ? null : _pickImage,
+                          icon: const Icon(Icons.add_photo_alternate_outlined),
+                          label: Text(
+                            _pickedPath != null ||
+                                    (widget.product?.image.isNotEmpty ?? false)
+                                ? 'Change photo'
+                                : 'Add photo',
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'JPG, PNG or WEBP, up to 5MB.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: IanovaColors.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: IanovaSpacing.xl),
               TextFormField(
                 controller: _name,
                 textCapitalization: TextCapitalization.sentences,
@@ -381,6 +554,15 @@ class _SellerProductFormPageState extends State<SellerProductFormPage> {
                 ],
                 onChanged: (v) => setState(() => _categoryId = v),
                 validator: (v) => v == null ? 'Choose a category.' : null,
+              ),
+              const SizedBox(height: IanovaSpacing.md),
+              TextFormField(
+                controller: _subcategory,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Subcategory',
+                  helperText: 'Optional, e.g. Sneakers',
+                ),
               ),
               const SizedBox(height: IanovaSpacing.md),
               Row(
@@ -422,6 +604,77 @@ class _SellerProductFormPageState extends State<SellerProductFormPage> {
                     : null,
               ),
               const SizedBox(height: IanovaSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _color,
+                      decoration: const InputDecoration(
+                        labelText: 'Color',
+                        helperText: 'Optional',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: IanovaSpacing.md),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _size,
+                      decoration: const InputDecoration(
+                        labelText: 'Size',
+                        helperText: 'Optional',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: IanovaSpacing.md),
+              TextFormField(
+                controller: _emoji,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Emoji',
+                  helperText: 'Shown when the product has no photo',
+                ),
+              ),
+              const SizedBox(height: IanovaSpacing.md),
+              const Text(
+                'Card background',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10,
+                children: [
+                  for (final hex in _swatches)
+                    GestureDetector(
+                      onTap: () => setState(() => _bgColor = hex),
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: _hexColor(hex),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _bgColor == hex
+                                ? IanovaColors.primary
+                                : IanovaColors.border,
+                            width: _bgColor == hex ? 2.5 : 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: IanovaSpacing.md),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _flash,
+                onChanged: (v) => setState(() => _flash = v),
+                title: const Text(
+                  'Show in Flash deals',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
               TextFormField(
                 controller: _description,
                 minLines: 4,
@@ -431,9 +684,9 @@ class _SellerProductFormPageState extends State<SellerProductFormPage> {
               ),
               const SizedBox(height: IanovaSpacing.md),
               const Text(
-                'New and edited listings are reviewed by our team before they '
-                'show in the store. Add photos from the seller area on the '
-                'website.',
+                'Unless the IANOVA team has marked you as a trusted seller, '
+                'new and edited listings are reviewed before they show in '
+                'the store.',
                 style: TextStyle(fontSize: 12, color: IanovaColors.muted),
               ),
               const SizedBox(height: IanovaSpacing.xl),
