@@ -201,6 +201,7 @@ class _ProductGalleryState extends State<ProductGallery> {
         if (slides[i].product.id == owner.id) i,
     ];
     final multi = slides.length > 1;
+    final hasColors = slides.map((s) => s.product.color).toSet().length > 1;
     final top = MediaQuery.of(context).padding.top;
     final wishlist = WishlistController.instance;
     final productId = widget.product.id;
@@ -270,6 +271,19 @@ class _ProductGalleryState extends State<ProductGallery> {
                 },
               ),
             ),
+            if (hasColors && owner.color.isNotEmpty)
+              Positioned(
+                top: top + 14,
+                left: 70,
+                right: 70,
+                child: Center(
+                  child: _GalleryPill(
+                    label: owner.color,
+                    background: Colors.black.withValues(alpha: 0.55),
+                    foreground: Colors.white,
+                  ),
+                ),
+              ),
             if (multi && page > 0)
               Positioned(
                 left: 12,

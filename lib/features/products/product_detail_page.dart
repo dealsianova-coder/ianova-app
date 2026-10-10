@@ -138,10 +138,15 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     return _selectedVariant?.stock ?? _detail?.product.stock ?? 0;
   }
 
+  /// What will be added, e.g. "Blue · 42".
+  String _optionLabel(Product product) {
+    return [product.color, product.size].where((v) => v.isNotEmpty).join(' · ');
+  }
+
   Future<void> _addToCart() async {
     final detail = _detail;
 
-    if (detail == null || _currentStock < 1 || _adding) {
+    if (detail == null || _currentStock < 1 || _adding || _switching) {
       return;
     }
 
@@ -204,7 +209,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         price: _currentPrice,
         originalPrice: _currentOriginalPrice ?? 0,
         stock: _currentStock,
-        adding: _adding,
+        adding: _adding || _switching,
+        label: _optionLabel(detail.product),
         onAddToCart: _currentStock > 0 ? _addToCart : null,
       ),
     );
@@ -1299,8 +1305,10 @@ class _BottomPurchaseBar extends StatelessWidget {
     required this.stock,
     required this.adding,
     required this.onAddToCart,
+    this.label = '',
   });
 
+  final String label;
   final double price;
   final double originalPrice;
   final int stock;
@@ -1346,6 +1354,15 @@ class _BottomPurchaseBar extends StatelessWidget {
                     letterSpacing: -0.4,
                   ),
                 ),
+                if (label.isNotEmpty)
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: IanovaColors.secondary,
+                    ),
+                  ),
               ],
             ),
             const SizedBox(width: IanovaSpacing.lg),
