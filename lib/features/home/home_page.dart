@@ -393,9 +393,8 @@ class _Header extends StatelessWidget {
       child: Row(
         children: [
           Image.asset(
-            'assets/images/ianova_mark.png',
-            width: 50,
-            height: 50,
+            'assets/images/ianova_wordmark.png',
+            height: 34,
             fit: BoxFit.contain,
             errorBuilder: (_, _, _) {
               return const Icon(
