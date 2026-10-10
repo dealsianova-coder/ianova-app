@@ -4,7 +4,9 @@ import '../../core/format/money.dart';
 import '../../core/network/api_service.dart' show ApiException;
 import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
+import '../../core/state/app_badges.dart';
 import 'admin_api.dart';
+import 'admin_extras.dart';
 
 void _snack(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(
@@ -70,8 +72,9 @@ class _AdminPageState extends State<AdminPage> {
       );
     }
 
-    return DefaultTabController(
-      length: 3,
+    return AdminBadgePoller(
+      child: DefaultTabController(
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Admin'),
@@ -82,11 +85,24 @@ class _AdminPageState extends State<AdminPage> {
               icon: const Icon(Icons.logout_rounded),
             ),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
+            isScrollable: true,
             tabs: [
-              Tab(text: 'Orders'),
-              Tab(text: 'Products'),
-              Tab(text: 'Store'),
+              const Tab(text: 'Orders'),
+              const Tab(text: 'Products'),
+              const Tab(text: 'Store'),
+              Tab(
+                child: BadgeLabel(
+                  label: 'Alerts',
+                  count: AppBadges.adminAlerts,
+                ),
+              ),
+              Tab(
+                child: BadgeLabel(
+                  label: 'Sellers',
+                  count: AppBadges.adminMessages,
+                ),
+              ),
             ],
           ),
         ),
@@ -95,8 +111,11 @@ class _AdminPageState extends State<AdminPage> {
             _OrdersTab(onExpired: _signOut),
             _ProductsTab(onExpired: _signOut),
             _StoreTab(onExpired: _signOut),
+            AdminAlertsTab(onExpired: _signOut),
+            AdminSellersTab(onExpired: _signOut),
           ],
         ),
+      ),
       ),
     );
   }
@@ -744,7 +763,7 @@ class _ProductEditorState extends State<_ProductEditor> {
             Wrap(
               spacing: 8,
               children: [
-                for (final status in const ['approved', 'pending', 'rejected'])
+                for (final status in const ['approved', 'pending', 'rejected', 'hidden'])
                   ChoiceChip(
                     label: Text(_cap(status)),
                     selected: _status == status,

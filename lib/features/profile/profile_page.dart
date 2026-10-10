@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../seller/seller_hub_page.dart';
+import '../../core/state/app_badges.dart';
 import '../../core/format/money.dart';
 
 import '../../core/network/api_service.dart';
@@ -37,6 +38,7 @@ class _ProfilePageState extends State<ProfilePage> {
     super.initState();
     _loadSession();
     _loadLatestOrder();
+    AppBadges.refreshAll();
   }
 
   @override
@@ -152,7 +154,7 @@ class _ProfilePageState extends State<ProfilePage> {
       MaterialPageRoute(
         builder: (_) => const AdminPage(),
       ),
-    );
+    ).then((_) => AppBadges.refreshAll());
   }
 
   void _openSettings() {
@@ -190,7 +192,10 @@ class _ProfilePageState extends State<ProfilePage> {
           IconButton(
             tooltip: 'Admin',
             onPressed: _openAdmin,
-            icon: const Icon(Icons.admin_panel_settings_outlined),
+            icon: BadgeIcon(
+              icon: Icons.admin_panel_settings_outlined,
+              count: AppBadges.adminTotal,
+            ),
           ),
           Padding(
             padding: const EdgeInsets.only(right: IanovaSpacing.md),
@@ -234,7 +239,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     onSettings: _openSettings,
                   ),
                   const SizedBox(height: IanovaSpacing.xl),
-                  _SellCard(onTap: _openSeller),
+                  BadgeCorner(
+                    count: AppBadges.seller,
+                    child: _SellCard(onTap: _openSeller),
+                  ),
                   const SizedBox(height: 16),
                   _AccountActivityCard(
                     order: _latestOrder,

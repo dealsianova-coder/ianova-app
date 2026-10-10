@@ -105,4 +105,13 @@ class AdminApi {
   Future<void> storeSet(Map<String, dynamic> values) async {
     await _call('store_set', body: values);
   }
+
+  /// Any admin action, for the alerts and sellers screens.
+  Future<Map<String, dynamic>> raw(
+    String action, {
+    Map<String, dynamic>? body,
+    Map<String, String>? query,
+  }) {
+    return _call(action, body: body, query: query);
+  }
 }
