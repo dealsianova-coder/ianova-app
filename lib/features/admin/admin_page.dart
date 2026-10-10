@@ -5,6 +5,7 @@ import '../../core/network/api_service.dart' show ApiException;
 import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
 import '../../core/state/app_badges.dart';
+import '../../widgets/panel_ui.dart';
 import 'admin_api.dart';
 import 'admin_extras.dart';
 
@@ -377,80 +378,123 @@ class _OrdersTabState extends State<_OrdersTab> {
           final order = _orders[index];
           final total = double.tryParse('${order['total']}') ?? 0;
 
+          final status = '${order['status']}';
+          final statusColor = status == 'delivered' || status == 'completed'
+              ? const Color(0xFF17803D)
+              : status == 'cancelled'
+                  ? const Color(0xFFB3261E)
+                  : const Color(0xFFA05A00);
+
           return InkWell(
             onTap: () => _pickStatus(order),
-            borderRadius: BorderRadius.circular(IanovaSpacing.radiusMedium),
+            borderRadius: BorderRadius.circular(20),
             child: Container(
-              padding: const EdgeInsets.all(IanovaSpacing.lg),
-              decoration: BoxDecoration(
-                color: IanovaColors.surface,
-                borderRadius:
-                    BorderRadius.circular(IanovaSpacing.radiusMedium),
-                border: Border.all(color: IanovaColors.border),
-              ),
-              child: Row(
+              padding: const EdgeInsets.all(14),
+              decoration: panelDecoration(),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Order #${order['id']}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 17,
+                          ),
+                        ),
+                      ),
+                      StatusPill(_cap(status), statusColor),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${order['created_at'] ?? ''}',
+                    style: const TextStyle(
+                      color: IanovaColors.muted,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: IanovaColors.soft,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '#${order['id']}  ${order['guest_name'] ?? ''}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
-                          ),
+                        Row(
+                          children: [
+                            const Icon(Icons.person_outline_rounded, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '${order['guest_name'] ?? ''}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${order['guest_phone'] ?? ''}',
-                          style: const TextStyle(
-                            color: IanovaColors.secondary,
+                        if ('${order['guest_phone'] ?? ''}'.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              const Icon(Icons.phone_outlined,
+                                  size: 16, color: IanovaColors.secondary),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${order['guest_phone']}',
+                                style: const TextStyle(
+                                    color: IanovaColors.secondary),
+                              ),
+                            ],
                           ),
-                        ),
-                        Text(
-                          '${order['address'] ?? ''}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: IanovaColors.secondary,
+                        ],
+                        if ('${order['address'] ?? ''}'.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.location_on_outlined,
+                                  size: 16, color: IanovaColors.secondary),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${order['address']}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      color: IanovaColors.secondary),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${order['created_at'] ?? ''}',
-                          style: const TextStyle(
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Tap to change status',
+                          style: TextStyle(
                             color: IanovaColors.muted,
                             fontSize: 12,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
+                      ),
                       Text(
                         formatKsh(total),
-                        style: const TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: IanovaColors.soft,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          _cap('${order['status']}'),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
                         ),
                       ),
                     ],
@@ -501,6 +545,7 @@ class _ProductsTabState extends State<_ProductsTab> {
     });
 
     try {
+      await PhotoLookup.ensureLoaded();
       final products = await AdminApi.instance.products(_search.text.trim());
 
       if (!mounted) return;
@@ -567,79 +612,108 @@ class _ProductsTabState extends State<_ProductsTab> {
               ? _Loading(error: _error, onRetry: _load)
               : RefreshIndicator(
                   onRefresh: _load,
-                  child: ListView.separated(
+                  child: ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(IanovaSpacing.lg),
-                    itemCount: _products.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final product = _products[index];
-                      final price =
-                          double.tryParse('${product['price']}') ?? 0;
-                      final flash = '${product['is_flash_deal']}' == '1' ||
-                          product['is_flash_deal'] == true;
-                      final option =
-                          '${product['color'] ?? ''} ${product['size'] ?? ''}'
-                              .trim();
-
-                      return InkWell(
-                        onTap: () => _edit(product),
-                        borderRadius: BorderRadius.circular(
-                          IanovaSpacing.radiusMedium,
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(IanovaSpacing.lg),
-                          decoration: BoxDecoration(
-                            color: IanovaColors.surface,
-                            borderRadius: BorderRadius.circular(
-                              IanovaSpacing.radiusMedium,
+                    children: [
+                      TwoColumnGrid(
+                        children: [
+                          for (final product in _products)
+                            _AdminProductCard(
+                              product: product,
+                              onTap: () => _edit(product),
                             ),
-                            border: Border.all(color: IanovaColors.border),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${product['name']}'
-                                      '${option.isEmpty ? '' : '  ·  $option'}',
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      '${formatKsh(price)}  ·  '
-                                      'Stock ${product['stock']}  ·  '
-                                      '${_cap('${product['status']}')}',
-                                      style: const TextStyle(
-                                        color: IanovaColors.secondary,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (flash)
-                                const Icon(
-                                  Icons.bolt_rounded,
-                                  color: IanovaColors.danger,
-                                ),
-                              const Icon(Icons.chevron_right_rounded),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                        ],
+                      ),
+                    ],
                   ),
                 ),
         ),
       ],
+    );
+  }
+}
+
+class _AdminProductCard extends StatelessWidget {
+  const _AdminProductCard({required this.product, required this.onTap});
+
+  final Map<String, dynamic> product;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final price = double.tryParse('${product['price']}') ?? 0;
+    final flash = '${product['is_flash_deal']}' == '1' ||
+        product['is_flash_deal'] == true;
+    final option =
+        '${product['color'] ?? ''} ${product['size'] ?? ''}'.trim();
+    final status = '${product['status']}';
+    final statusColor = status == 'approved' || status == 'active'
+        ? const Color(0xFF17803D)
+        : status == 'pending'
+            ? const Color(0xFFA05A00)
+            : const Color(0xFFB3261E);
+    final photo = PhotoLookup.forProduct(
+      id: int.tryParse('${product['id']}'),
+      name: '${product['name']}',
+      own: '${product['image'] ?? product['image_url'] ?? ''}',
+    );
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: panelDecoration(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                ImageBlock(url: photo, radius: 14),
+                Positioned(
+                  left: 8,
+                  top: 8,
+                  child: StatusPill(_cap(status), statusColor),
+                ),
+                if (flash)
+                  const Positioned(
+                    right: 8,
+                    top: 8,
+                    child: CircleAvatar(
+                      radius: 14,
+                      backgroundColor: Colors.white,
+                      child: Icon(Icons.bolt_rounded,
+                          size: 18, color: IanovaColors.danger),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '${product['name']}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              formatKsh(price),
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                InfoChip('Stock ${product['stock']}',
+                    icon: Icons.inventory_2_outlined),
+                if (option.isNotEmpty) InfoChip(option),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -39,6 +39,7 @@ class SellerProduct {
     required this.status,
     required this.option,
     required this.locked,
+    this.image = '',
   });
 
   final int id;
@@ -48,6 +49,7 @@ class SellerProduct {
   final String status;
   final String option;
   final bool locked;
+  final String image;
 
   factory SellerProduct.fromJson(Map<String, dynamic> json) {
     final color = json['color']?.toString() ?? '';
@@ -61,6 +63,7 @@ class SellerProduct {
       status: json['status']?.toString() ?? '',
       option: [color, size].where((v) => v.isNotEmpty).join(' · '),
       locked: json['locked'] == true,
+      image: (json['image'] ?? json['image_url'] ?? json['photo'] ?? '').toString(),
     );
   }
 }

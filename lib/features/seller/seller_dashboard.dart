@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../core/format/money.dart';
 import '../../core/state/app_badges.dart';
 import '../../core/theme/ianova_theme.dart';
+import '../../widgets/panel_ui.dart';
+import 'seller_cards.dart';
 import 'seller_inbox_view.dart';
 import 'seller_models.dart' hide SellerSummary, SellerProduct, SellerOrder;
 import 'seller_ops_service.dart';
@@ -252,6 +254,7 @@ class _ProductsTabState extends State<_ProductsTab> {
 
   Future<void> _load() async {
     try {
+      await PhotoLookup.ensureLoaded();
       final items = await widget.ops.products(widget.token);
 
       if (!mounted) return;
@@ -332,70 +335,19 @@ class _ProductsTabState extends State<_ProductsTab> {
                 Center(child: Text('You have no products yet.')),
               ],
             )
-          : ListView.separated(
+          : ListView(
               padding: const EdgeInsets.all(16),
-              itemCount: _items.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                final product = _items[index];
-
-                return Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: IanovaColors.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: IanovaColors.border),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              product.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            product.status.isEmpty
-                                ? ''
-                                : product.status[0].toUpperCase() +
-                                    product.status.substring(1),
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: _statusColor(product.status),
-                            ),
-                          ),
-                        ],
+              children: [
+                TwoColumnGrid(
+                  children: [
+                    for (final product in _items)
+                      SellerProductCard(
+                        product: product,
+                        onRequestReview: () => _request(product),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${formatKsh(product.price)} · Stock ${product.stock}'
-                        '${product.option.isEmpty ? '' : ' · ${product.option}'}',
-                        style: const TextStyle(color: IanovaColors.muted),
-                      ),
-                      if (product.locked) ...[
-                        const SizedBox(height: 10),
-                        const Text(
-                          'Locked by admin. You cannot change it until the admin approves it.',
-                          style: TextStyle(
-                            color: Color(0xFFB3261E),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        OutlinedButton(
-                          onPressed: () => _request(product),
-                          child: const Text('Request review'),
-                        ),
-                      ],
-                    ],
-                  ),
-                );
-              },
+                  ],
+                ),
+              ],
             ),
     );
   }
@@ -432,6 +384,7 @@ class _OrdersTabState extends State<_OrdersTab> {
 
   Future<void> _load() async {
     try {
+      await PhotoLookup.ensureLoaded();
       final items = await widget.ops.orders(widget.token);
 
       if (!mounted) return;
@@ -503,118 +456,14 @@ class _OrdersTabState extends State<_OrdersTab> {
           : ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: _items.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              separatorBuilder: (_, _) => const SizedBox(height: 14),
               itemBuilder: (context, index) {
                 final order = _items[index];
 
-                return Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: IanovaColors.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: IanovaColors.border),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Order #${order.id}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            order.approved ? 'You approved' : 'Waiting for you',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: order.approved
-                                  ? const Color(0xFF17803D)
-                                  : const Color(0xFFA05A00),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        order.createdAt,
-                        style: const TextStyle(
-                          color: IanovaColors.muted,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        order.customer,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      if (order.phone.isNotEmpty || order.address.isNotEmpty)
-                        Text(
-                          [order.phone, order.address]
-                              .where((v) => v.isNotEmpty)
-                              .join(' · '),
-                          style: const TextStyle(color: IanovaColors.muted),
-                        ),
-                      const Divider(height: 22),
-                      for (final line in order.lines)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${line.quantity} × ${line.name}'
-                                  '${line.option.isEmpty ? '' : ' (${line.option})'}',
-                                ),
-                              ),
-                              Text(formatKsh(line.lineTotal)),
-                            ],
-                          ),
-                        ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Your total: ${formatKsh(order.total)}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          if (order.canApprove)
-                            FilledButton(
-                              onPressed:
-                                  _approving == order.id ? null : () => _approve(order),
-                              child: _approving == order.id
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text('Approve order'),
-                            )
-                          else if (order.note.isNotEmpty)
-                            Flexible(
-                              child: Text(
-                                order.note,
-                                textAlign: TextAlign.end,
-                                style: const TextStyle(
-                                  color: IanovaColors.muted,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
+                return SellerOrderCard(
+                  order: order,
+                  approving: _approving == order.id,
+                  onApprove: () => _approve(order),
                 );
               },
             ),
