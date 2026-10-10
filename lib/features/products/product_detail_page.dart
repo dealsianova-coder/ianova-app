@@ -13,6 +13,7 @@ import '../../models/product_variant.dart';
 import '../../models/store_settings.dart';
 import '../../widgets/ianova_product_card.dart';
 import '../../widgets/ianova_product_image.dart';
+import 'product_gallery.dart';
 
 class ProductDetailPage extends StatefulWidget {
   const ProductDetailPage({
@@ -273,17 +274,13 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.zero,
         children: [
-          _Gallery(
-            productId: product.id,
-            image: product.image,
-            emoji: product.emoji,
-            backgroundColor: product.bgColor,
+          ProductGallery(
+            product: product,
+            options: detail.options,
             discountPercent: percent,
-            isFlashDeal: product.isFlashDeal,
-            slides: _colorSlides(detail.options, product),
             activeId: _currentId,
             busy: _switching,
-            onSlide: _switchTo,
+            onSwitch: _switchTo,
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(

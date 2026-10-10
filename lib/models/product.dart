@@ -18,6 +18,7 @@ class Product {
   final String color;
   final String size;
   final int optionCount;
+  final List<String> images;
 
   const Product({
     required this.id,
@@ -39,6 +40,7 @@ class Product {
     this.color = '',
     this.size = '',
     this.optionCount = 1,
+    this.images = const [],
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -64,7 +66,23 @@ class Product {
       color: json['color']?.toString().trim() ?? '',
       size: json['size']?.toString().trim() ?? '',
       optionCount: int.tryParse(json['option_count'].toString()) ?? 1,
+      images: json['images'] is List
+          ? (json['images'] as List).map((e) => e.toString()).toList()
+          : const [],
     );
+  }
+
+  /// Every photo of this product, main photo first.
+  List<String> get photos {
+    final list = <String>[];
+
+    for (final value in [...images, image]) {
+      final v = value.trim();
+
+      if (v.isNotEmpty && !list.contains(v)) list.add(v);
+    }
+
+    return list;
   }
 
   int get discountPercent {
