@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../seller/seller_hub_page.dart';
 import '../../core/format/money.dart';
 
 import '../../core/network/api_service.dart';
@@ -162,6 +163,12 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  void _openSeller() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SellerHubPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = _user;
@@ -227,6 +234,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     onSettings: _openSettings,
                   ),
                   const SizedBox(height: IanovaSpacing.xl),
+                  _SellCard(onTap: _openSeller),
+                  const SizedBox(height: 16),
                   _AccountActivityCard(
                     order: _latestOrder,
                     loading: _isLoadingOrder,
@@ -930,6 +939,72 @@ class _SectionHeading extends StatelessWidget {
       style: const TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+}
+
+class _SellCard extends StatelessWidget {
+  const _SellCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: IanovaColors.sand,
+      borderRadius: BorderRadius.circular(IanovaSpacing.radiusXLarge),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(IanovaSpacing.radiusXLarge),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(IanovaSpacing.lg),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.storefront_outlined,
+                  color: IanovaColors.primary,
+                ),
+              ),
+              const SizedBox(width: IanovaSpacing.md),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sell on IANOVA',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: IanovaColors.primary,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Apply, sign in and manage your store',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: IanovaColors.secondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: IanovaColors.secondary,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
