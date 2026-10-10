@@ -4,6 +4,7 @@ import 'core/network/api_service.dart';
 import 'core/state/wishlist_controller.dart';
 import 'core/theme/ianova_theme.dart';
 import 'features/home/home_page.dart';
+import 'features/splash/splash_page.dart';
 import 'features/products/product_detail_page.dart';
 import 'features/categories/categories_page.dart';
 import 'features/cart/cart_page.dart';
@@ -23,7 +24,7 @@ class IanovaApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'IANOVA',
       theme: IanovaTheme.light(),
-      home: const IanovaShell(),
+      home: const SplashGate(next: IanovaShell()),
     );
   }
 }
