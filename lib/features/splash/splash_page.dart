@@ -16,7 +16,7 @@ class _SplashGateState extends State<SplashGate>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 2400),
+    duration: const Duration(milliseconds: 5000),
   );
   late final Animation<double> _scale;
   late final Animation<double> _opacity;
@@ -51,7 +51,7 @@ class _SplashGateState extends State<SplashGate>
     ]).animate(_c);
 
     _c.forward();
-    Timer(const Duration(milliseconds: 2500), () {
+    Timer(const Duration(milliseconds: 5200), () {
       if (mounted) setState(() => _done = true);
     });
   }
@@ -86,7 +86,7 @@ class _SplashGateState extends State<SplashGate>
                         child: Image.asset('assets/images/ianova_logo.png'),
                       ),
                       const SizedBox(height: 18),
-                      const Text('v1.0.14',
+                      const Text('v1.0.15',
                           style: TextStyle(
                               color: Color(0xFF9AA0AE), fontSize: 12)),
                     ],
