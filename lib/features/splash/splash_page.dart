@@ -78,9 +78,18 @@ class _SplashGateState extends State<SplashGate>
                     opacity: _opacity.value,
                     child: Transform.scale(scale: _scale.value, child: child),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 48),
-                    child: Image.asset('assets/images/ianova_logo.png'),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 48),
+                        child: Image.asset('assets/images/ianova_logo.png'),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text('v1.0.14',
+                          style: TextStyle(
+                              color: Color(0xFF9AA0AE), fontSize: 12)),
+                    ],
                   ),
                 ),
               ),
