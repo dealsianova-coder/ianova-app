@@ -8,6 +8,7 @@ import '../../core/theme/ianova_theme.dart';
 import '../../models/checkout_result.dart';
 import '../../models/user_address.dart';
 import '../auth/login_page.dart';
+import '../../widgets/address_suggestions.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -460,6 +461,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             return null;
           },
         ),
+        AddressSuggestions(controller: _addressController),
       ],
     );
   }

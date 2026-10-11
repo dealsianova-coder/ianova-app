@@ -5,6 +5,7 @@ import '../../core/network/api_service.dart';
 import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
 import '../../models/user_address.dart';
+import '../../widgets/address_suggestions.dart';
 
 class AddressesPage extends StatefulWidget {
   const AddressesPage({super.key});
@@ -638,6 +639,7 @@ class _AddressFormPageState extends State<AddressFormPage> {
                   255,
                 ),
               ),
+        AddressSuggestions(controller: _addressController),
               const SizedBox(height: IanovaSpacing.md),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
