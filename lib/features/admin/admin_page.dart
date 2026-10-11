@@ -75,48 +75,70 @@ class _AdminPageState extends State<AdminPage> {
 
     return AdminBadgePoller(
       child: DefaultTabController(
-      length: 5,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Admin'),
-          actions: [
-            IconButton(
-              tooltip: 'Sign out',
-              onPressed: _signOut,
-              icon: const Icon(Icons.logout_rounded),
+        length: 5,
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text(
+              'Admin',
+              style: TextStyle(fontWeight: FontWeight.w900),
             ),
-          ],
-          bottom: TabBar(
-            isScrollable: true,
-            tabs: [
-              const Tab(text: 'Orders'),
-              const Tab(text: 'Products'),
-              const Tab(text: 'Store'),
-              Tab(
-                child: BadgeLabel(
-                  label: 'Alerts',
-                  count: AppBadges.adminAlerts,
+            actions: [
+              IconButton(
+                tooltip: 'Sign out',
+                onPressed: _signOut,
+                icon: const Icon(Icons.logout_rounded),
+              ),
+            ],
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(58),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                child: TabBar(
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  dividerColor: Colors.transparent,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicator: BoxDecoration(
+                    color: IanovaColors.primary,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  labelColor: Colors.white,
+                  unselectedLabelColor: IanovaColors.secondary,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w800),
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 18),
+                  tabs: [
+                    const Tab(height: 38, text: 'Orders'),
+                    const Tab(height: 38, text: 'Products'),
+                    const Tab(height: 38, text: 'Store'),
+                    Tab(
+                      height: 38,
+                      child: BadgeLabel(
+                        label: 'Alerts',
+                        count: AppBadges.adminAlerts,
+                      ),
+                    ),
+                    Tab(
+                      height: 38,
+                      child: BadgeLabel(
+                        label: 'Sellers',
+                        count: AppBadges.adminMessages,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Tab(
-                child: BadgeLabel(
-                  label: 'Sellers',
-                  count: AppBadges.adminMessages,
-                ),
-              ),
+            ),
+          ),
+          body: TabBarView(
+            children: [
+              _OrdersTab(onExpired: _signOut),
+              _ProductsTab(onExpired: _signOut),
+              _StoreTab(onExpired: _signOut),
+              AdminAlertsTab(onExpired: _signOut),
+              AdminSellersTab(onExpired: _signOut),
             ],
           ),
         ),
-        body: TabBarView(
-          children: [
-            _OrdersTab(onExpired: _signOut),
-            _ProductsTab(onExpired: _signOut),
-            _StoreTab(onExpired: _signOut),
-            AdminAlertsTab(onExpired: _signOut),
-            AdminSellersTab(onExpired: _signOut),
-          ],
-        ),
-      ),
       ),
     );
   }
@@ -176,38 +198,81 @@ class _AdminLoginState extends State<_AdminLogin> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Admin sign in')),
+      appBar: AppBar(),
       body: ListView(
         padding: const EdgeInsets.all(IanovaSpacing.xl),
         children: [
-          const Text(
-            'Use the same email and password as the website admin.',
-            style: TextStyle(color: IanovaColors.secondary),
-          ),
-          const SizedBox(height: IanovaSpacing.xl),
-          TextField(
-            controller: _email,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(hintText: 'Admin email'),
-          ),
-          const SizedBox(height: IanovaSpacing.md),
-          TextField(
-            controller: _password,
-            obscureText: true,
-            decoration: const InputDecoration(hintText: 'Password'),
-            onSubmitted: (_) => _submit(),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: IanovaSpacing.md),
-            Text(
-              _error!,
-              style: const TextStyle(color: IanovaColors.danger),
+          const SizedBox(height: 8),
+          Center(
+            child: Image.asset(
+              'assets/images/ianova_logo.png',
+              height: 64,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
-          ],
-          const SizedBox(height: IanovaSpacing.xl),
-          FilledButton(
-            onPressed: _busy ? null : _submit,
-            child: Text(_busy ? 'Signing in...' : 'Sign in'),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: panelDecoration(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Admin sign in',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Use the same email and password as the website admin.',
+                  style: TextStyle(color: IanovaColors.secondary),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _email,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    hintText: 'Admin email',
+                    prefixIcon: Icon(Icons.mail_outline_rounded),
+                  ),
+                ),
+                const SizedBox(height: IanovaSpacing.md),
+                TextField(
+                  controller: _password,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Password',
+                    prefixIcon: Icon(Icons.lock_outline_rounded),
+                  ),
+                  onSubmitted: (_) => _submit(),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: IanovaSpacing.md),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFEDEE),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(color: IanovaColors.danger),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 50),
+                    ),
+                    onPressed: _busy ? null : _submit,
+                    child: Text(_busy ? 'Signing in...' : 'Sign in'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -580,6 +645,11 @@ class _ProductsTabState extends State<_ProductsTab> {
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       builder: (_) => _ProductEditor(product: product),
     );
 
@@ -786,69 +856,134 @@ class _ProductEditorState extends State<_ProductEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final p = widget.product;
+    final photo = PhotoLookup.forProduct(
+      id: int.tryParse('${p['id']}'),
+      name: '${p['name']}',
+      own: '${p['image'] ?? p['image_url'] ?? ''}',
+    );
+    final option = '${p['color'] ?? ''} ${p['size'] ?? ''}'.trim();
+
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        20,
-        8,
-        20,
-        MediaQuery.of(context).viewInsets.bottom + 20,
+        16,
+        0,
+        16,
+        MediaQuery.of(context).viewInsets.bottom + 16,
       ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${widget.product['name']}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: IanovaSpacing.lg),
             Row(
               children: [
+                ImageBlock(url: photo, size: 72, radius: 16),
+                const SizedBox(width: 14),
                 Expanded(
-                  child: TextField(
-                    controller: _price,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(hintText: 'Sale price'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${p['name']}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      if (option.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        InfoChip(option),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _original,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(hintText: 'Old price'),
-                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SectionCard(
+              icon: Icons.sell_outlined,
+              title: 'Pricing',
+              subtitle: 'What customers pay',
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _price,
+                        keyboardType: TextInputType.number,
+                        decoration:
+                            const InputDecoration(labelText: 'Sale price'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _original,
+                        keyboardType: TextInputType.number,
+                        decoration:
+                            const InputDecoration(labelText: 'Old price'),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _stock,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(hintText: 'Stock'),
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Flash deal'),
-              value: _flash,
-              onChanged: (value) => setState(() => _flash = value),
-            ),
-            Wrap(
-              spacing: 8,
+            SectionCard(
+              icon: Icons.inventory_2_outlined,
+              title: 'Stock',
               children: [
-                for (final status in const ['approved', 'pending', 'rejected', 'hidden'])
-                  ChoiceChip(
-                    label: Text(_cap(status)),
-                    selected: _status == status,
-                    onSelected: (_) => setState(() => _status = status),
-                  ),
+                TextField(
+                  controller: _stock,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Units in stock'),
+                ),
               ],
             ),
-            const SizedBox(height: IanovaSpacing.lg),
-            FilledButton(
-              onPressed: _saving ? null : _save,
-              child: Text(_saving ? 'Saving...' : 'Save changes'),
+            const SizedBox(height: 12),
+            SectionCard(
+              icon: Icons.bolt_rounded,
+              title: 'Visibility',
+              tint: IanovaColors.blush,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Flash deal'),
+                  subtitle: const Text('Show on the home screen flash section'),
+                  value: _flash,
+                  onChanged: (value) => setState(() => _flash = value),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final status in const [
+                      'approved',
+                      'pending',
+                      'rejected',
+                      'hidden',
+                    ])
+                      ChoiceChip(
+                        label: Text(_cap(status)),
+                        selected: _status == status,
+                        onSelected: (_) => setState(() => _status = status),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 50)),
+                onPressed: _saving ? null : _save,
+                child: Text(_saving ? 'Saving...' : 'Save changes'),
+              ),
             ),
           ],
         ),
@@ -1010,95 +1145,160 @@ class _StoreTabState extends State<_StoreTab> {
       return _Loading(error: _error, onRetry: _load);
     }
 
-    return ListView(
-      padding: const EdgeInsets.all(IanovaSpacing.xl),
+    return Column(
       children: [
-        const Text(
-          'Announcement',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _announcement,
-          decoration: const InputDecoration(hintText: 'Message for the top bar'),
-        ),
-        const SizedBox(height: IanovaSpacing.xl),
-        const Text(
-          'Flash deals end',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          _endsAt.isEmpty ? 'No countdown' : _endsAt,
-          style: const TextStyle(color: IanovaColors.secondary),
-        ),
-        Row(
-          children: [
-            TextButton(onPressed: _pickEnd, child: const Text('Pick date and time')),
-            TextButton(
-              onPressed: () => setState(() => _endsAt = ''),
-              child: const Text('Clear'),
-            ),
-          ],
-        ),
-        const SizedBox(height: IanovaSpacing.md),
-        const Text(
-          'Delivery',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _freeOver,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(hintText: 'Free over (KSh)'),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              SectionCard(
+                icon: Icons.campaign_outlined,
+                title: 'Announcement',
+                subtitle: 'Message in the top bar',
+                tint: IanovaColors.sand,
+                children: [
+                  TextField(
+                    controller: _announcement,
+                    decoration: const InputDecoration(
+                      hintText: 'Message for the top bar',
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _fee,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(hintText: 'Fee (KSh)'),
+              const SizedBox(height: 12),
+              SectionCard(
+                icon: Icons.bolt_rounded,
+                title: 'Flash deals',
+                subtitle: 'When the countdown ends',
+                tint: IanovaColors.blush,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: IanovaColors.soft,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.schedule_rounded, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _endsAt.isEmpty ? 'No countdown' : _endsAt,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _pickEnd,
+                          child: const Text('Pick date and time'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      TextButton(
+                        onPressed: () => setState(() => _endsAt = ''),
+                        child: const Text('Clear'),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: IanovaSpacing.xl),
-        const Text(
-          'Home screen',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-        ),
-        for (final entry in _toggleLabels.entries)
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(entry.value),
-            value: _flags[entry.key] ?? false,
-            onChanged: (value) => setState(() => _flags[entry.key] = value),
+              const SizedBox(height: 12),
+              SectionCard(
+                icon: Icons.local_shipping_outlined,
+                title: 'Delivery',
+                subtitle: 'Fee and free-delivery limit',
+                tint: IanovaColors.sky,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _freeOver,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Free over (KSh)',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _fee,
+                          keyboardType: TextInputType.number,
+                          decoration:
+                              const InputDecoration(labelText: 'Fee (KSh)'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SectionCard(
+                icon: Icons.home_outlined,
+                title: 'Home screen',
+                subtitle: 'Choose what customers see',
+                children: [
+                  for (final entry in _toggleLabels.entries)
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Text(entry.value),
+                      value: _flags[entry.key] ?? false,
+                      onChanged: (value) =>
+                          setState(() => _flags[entry.key] = value),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SectionCard(
+                icon: Icons.support_agent_rounded,
+                title: 'Support contact',
+                children: [
+                  TextField(
+                    controller: _phone,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone',
+                      prefixIcon: Icon(Icons.phone_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      prefixIcon: Icon(Icons.mail_outline_rounded),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        const SizedBox(height: IanovaSpacing.md),
-        const Text(
-          'Support contact',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
         ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _phone,
-          keyboardType: TextInputType.phone,
-          decoration: const InputDecoration(hintText: 'Phone'),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _email,
-          keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(hintText: 'Email'),
-        ),
-        const SizedBox(height: IanovaSpacing.xl),
-        FilledButton(
-          onPressed: _saving ? null : _save,
-          child: Text(_saving ? 'Saving...' : 'Save changes'),
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: IanovaColors.border)),
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 50)),
+              onPressed: _saving ? null : _save,
+              child: Text(_saving ? 'Saving...' : 'Save changes'),
+            ),
+          ),
         ),
       ],
     );

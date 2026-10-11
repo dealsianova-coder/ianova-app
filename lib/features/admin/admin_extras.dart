@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_service.dart' show ApiException;
 import '../../core/state/app_badges.dart';
 import '../../core/theme/ianova_theme.dart';
+import '../../widgets/panel_ui.dart';
 import 'admin_api.dart';
 
 void _say(BuildContext context, String message) {
@@ -162,12 +163,10 @@ class _AdminAlertsTabState extends State<AdminAlertsTab> {
           for (final alert in _items)
             Container(
               margin: const EdgeInsets.only(bottom: 10),
-              decoration: BoxDecoration(
+              decoration: panelDecoration(
                 color: alert['read_at'] == null
                     ? const Color(0xFFFFF8E6)
                     : IanovaColors.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: IanovaColors.border),
               ),
               child: ListTile(
                 onTap: () => _open(alert),
@@ -295,12 +294,20 @@ class _AdminSellersTabState extends State<AdminSellersTab> {
           final last = '${seller['last_message'] ?? ''}';
 
           return Container(
-            decoration: BoxDecoration(
-              color: IanovaColors.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: IanovaColors.border),
-            ),
+            decoration: panelDecoration(),
             child: ListTile(
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              leading: CircleAvatar(
+                radius: 22,
+                backgroundColor: IanovaColors.soft,
+                child: Text(
+                  '${seller['business_name']}'.trim().isEmpty
+                      ? '?'
+                      : '${seller['business_name']}'.trim()[0].toUpperCase(),
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
               onTap: () async {
                 await Navigator.of(context).push(
                   MaterialPageRoute(
