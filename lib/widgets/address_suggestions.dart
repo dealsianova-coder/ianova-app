@@ -15,8 +15,10 @@ class _Place {
   final String label;
 }
 
-/// Shows real places (OpenStreetMap) under an address box while the
-/// customer types. Tap a suggestion to fill the box.
+/// Shows real places under an address box while the customer types.
+///
+/// Well-known Kenyan towns and estates appear instantly; more places from
+/// OpenStreetMap join the list a moment later. Tap one to fill the box.
 class AddressSuggestions extends StatefulWidget {
   const AddressSuggestions({super.key, required this.controller});
 
@@ -30,7 +32,10 @@ class _AddressSuggestionsState extends State<AddressSuggestions> {
   final http.Client _client = http.Client();
 
   Timer? _debounce;
-  List<_Place> _places = const [];
+  List<_Place> _local = const [];
+  List<_Place> _remote = const [];
+  bool _loading = false;
+  bool _done = false;
   String _picked = '';
   String _lastText = '';
   int _request = 0;
@@ -81,8 +86,14 @@ class _AddressSuggestionsState extends State<AddressSuggestions> {
     _request++;
     _debounce?.cancel();
 
-    if (_places.isNotEmpty && mounted) {
-      setState(() => _places = const []);
+    if (mounted &&
+        (_local.isNotEmpty || _remote.isNotEmpty || _loading || _done)) {
+      setState(() {
+        _local = const [];
+        _remote = const [];
+        _loading = false;
+        _done = false;
+      });
     }
   }
 
@@ -98,8 +109,7 @@ class _AddressSuggestionsState extends State<AddressSuggestions> {
       return;
     }
 
-    final lines = text.split('\n');
-    final query = lines.last.trim();
+    final query = text.split('\n').last.trim();
 
     if (query.length < 3) {
       _clear();
@@ -108,51 +118,94 @@ class _AddressSuggestionsState extends State<AddressSuggestions> {
 
     _debounce?.cancel();
     _debounce = Timer(
-      const Duration(milliseconds: 450),
+      const Duration(milliseconds: 300),
       () => _search(query),
     );
+  }
+
+  Future<List<_Place>> _fetch(String query, {required bool localOnly}) async {
+    final params = <String, String>{'q': query};
+
+    if (localOnly) params['mode'] = 'local';
+
+    final uri = Uri.parse('${IanovaApiConfig.baseUrl}/api/places.php')
+        .replace(queryParameters: params);
+    final response = await _client
+        .get(uri, headers: const {'Accept': 'application/json'})
+        .timeout(Duration(seconds: localOnly ? 5 : 9));
+
+    final data = jsonDecode(response.body);
+    final raw = data is Map ? data['places'] : null;
+    final places = <_Place>[];
+
+    if (raw is List) {
+      for (final item in raw) {
+        if (item is! Map) continue;
+
+        final label = item['label']?.toString() ?? '';
+
+        if (label.isEmpty) continue;
+
+        places.add(
+          _Place(
+            item['name']?.toString() ?? label,
+            item['detail']?.toString() ?? '',
+            label,
+          ),
+        );
+      }
+    }
+
+    return places;
   }
 
   Future<void> _search(String query) async {
     final id = ++_request;
 
+    setState(() {
+      _local = const [];
+      _remote = const [];
+      _loading = true;
+      _done = false;
+    });
+
+    // Instant answer from the built-in list.
+    _fetch(query, localOnly: true).then((places) {
+      if (!mounted || id != _request) return;
+
+      setState(() => _local = places);
+    }).catchError((_) {});
+
+    // Fuller answer (built-in + OpenStreetMap) a moment later.
     try {
-      final uri = Uri.parse('${IanovaApiConfig.baseUrl}/api/places.php')
-          .replace(queryParameters: {'q': query});
-      final response = await _client
-          .get(uri, headers: const {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 7));
+      final places = await _fetch(query, localOnly: false);
 
       if (!mounted || id != _request) return;
 
-      final data = jsonDecode(response.body);
-      final raw = data is Map ? data['places'] : null;
-      final places = <_Place>[];
-
-      if (raw is List) {
-        for (final item in raw) {
-          if (item is! Map) continue;
-
-          final label = item['label']?.toString() ?? '';
-
-          if (label.isEmpty) continue;
-
-          places.add(
-            _Place(
-              item['name']?.toString() ?? label,
-              item['detail']?.toString() ?? '',
-              label,
-            ),
-          );
-        }
-      }
-
-      setState(() => _places = places);
+      setState(() {
+        _remote = places;
+        _loading = false;
+        _done = true;
+      });
     } catch (_) {
-      if (mounted && id == _request) {
-        setState(() => _places = const []);
-      }
+      if (!mounted || id != _request) return;
+
+      setState(() {
+        _loading = false;
+        _done = true;
+      });
     }
+  }
+
+  List<_Place> _merged() {
+    final seen = <String>{};
+    final out = <_Place>[];
+
+    for (final place in [..._local, ..._remote]) {
+      if (seen.add(place.label.toLowerCase())) out.add(place);
+    }
+
+    return out.take(10).toList();
   }
 
   void _pick(_Place place) {
@@ -165,12 +218,19 @@ class _AddressSuggestionsState extends State<AddressSuggestions> {
       offset: place.label.length,
     );
 
-    setState(() => _places = const []);
+    setState(() {
+      _local = const [];
+      _remote = const [];
+      _loading = false;
+      _done = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_places.isEmpty) return const SizedBox.shrink();
+    final places = _merged();
+
+    if (places.isEmpty && !_loading && !_done) return const SizedBox.shrink();
 
     return Container(
       margin: const EdgeInsets.only(top: 6),
@@ -182,7 +242,12 @@ class _AddressSuggestionsState extends State<AddressSuggestions> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final place in _places)
+          if (_loading)
+            const ClipRRect(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+              child: LinearProgressIndicator(minHeight: 2),
+            ),
+          for (final place in places)
             InkWell(
               onTap: () => _pick(place),
               child: Padding(
@@ -219,6 +284,22 @@ class _AddressSuggestionsState extends State<AddressSuggestions> {
                     ),
                   ],
                 ),
+              ),
+            ),
+          if (_loading && places.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text(
+                'Searching places…',
+                style: TextStyle(color: IanovaColors.muted),
+              ),
+            ),
+          if (!_loading && _done && places.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text(
+                'No matching places. You can type your full address.',
+                style: TextStyle(color: IanovaColors.muted),
               ),
             ),
           const Padding(
