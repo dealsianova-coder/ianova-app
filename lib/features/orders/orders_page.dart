@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/format/money.dart';
 
 import '../../core/network/api_service.dart';
+import 'order_edit_page.dart';
+import 'order_manage_service.dart';
 import '../../models/order.dart';
 
 
@@ -340,6 +342,68 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     super.dispose();
   }
 
+  Future<void> _cancelOrder(Order order) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Cancel order #${order.id}?'),
+        content: const Text('Your items will be released back to the store.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Keep order'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Cancel order'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    try {
+      await OrderManageService().cancel(order.id);
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order cancelled.')),
+      );
+      _loadOrder();
+    } on OrderManageException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
+  }
+
+  Future<void> _editOrder(Order order) async {
+    final result = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => OrderEditPage(order: order)),
+    );
+
+    if (result != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result == 'cancelled' ? 'Order cancelled.' : 'Order updated.',
+          ),
+        ),
+      );
+      _loadOrder();
+    }
+  }
+
   Future<void> _loadOrder() async {
     setState(() {
       _loading = true;
@@ -454,6 +518,28 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           ),
           const SizedBox(height: _spaceMd),
           _TotalsCard(order: order),
+          if (order.status == 'pending') ...[
+            const SizedBox(height: _spaceMd),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _cancelOrder(order),
+                    icon: const Icon(Icons.close_rounded),
+                    label: const Text('Cancel order'),
+                  ),
+                ),
+                const SizedBox(width: _spaceSm),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => _editOrder(order),
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Edit order'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
