@@ -110,7 +110,9 @@ class _SellerHubPageState extends State<SellerHubPage> {
 
     return Scaffold(
       backgroundColor: IanovaColors.background,
-      appBar: AppBar(
+      appBar: session != null && session.status == 'approved'
+          ? null
+          : AppBar(
         title: const Text(
           'Sell on IANOVA',
           style: TextStyle(fontWeight: FontWeight.w800),

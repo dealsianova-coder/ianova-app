@@ -136,103 +136,131 @@ class _SellerProductsTabState extends State<SellerProductsTab> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final catalog = _catalog;
+  static const double _wProduct = 230;
+  static const double _wPrice = 110;
+  static const double _wStock = 70;
+  static const double _wStatus = 90;
+  static const double _wFlash = 90;
+  static const double _wActions = 120;
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      floatingActionButton: catalog == null
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: () => _openForm(),
-              backgroundColor: IanovaColors.primary,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Add product'),
-            ),
-      body: RefreshIndicator(
-        onRefresh: () =>
-            _refresh(() => widget.service.fetchCatalog(widget.session.token)),
-        child: catalog == null
-            ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 120),
-                  Center(child: CircularProgressIndicator()),
+  Widget _cell(double width, Widget child) {
+    return SizedBox(width: width, child: child);
+  }
+
+  Widget _head(double width, String text) {
+    return _cell(
+      width,
+      Text(
+        text.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 12,
+          letterSpacing: 0.7,
+          fontWeight: FontWeight.w700,
+          color: IanovaColors.secondary,
+        ),
+      ),
+    );
+  }
+
+  /// Same columns as the website's seller dashboard table.
+  Widget _table(List<SellerProduct> products) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: IanovaColors.border),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              color: IanovaColors.soft,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  _head(_wProduct, 'Product'),
+                  _head(_wPrice, 'Price'),
+                  _head(_wStock, 'Stock'),
+                  _head(_wStatus, 'Status'),
+                  _head(_wFlash, 'Flash deal'),
+                  _head(_wActions, 'Actions'),
                 ],
-              )
-            : catalog.products.isEmpty
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [
-                      SizedBox(height: 120),
-                      Center(
-                        child: Text(
-                          'No products yet. Tap "Add product".',
-                          style: TextStyle(color: IanovaColors.secondary),
-                        ),
-                      ),
-                    ],
-                  )
-                : ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(
-                      IanovaSpacing.lg,
-                      IanovaSpacing.lg,
-                      IanovaSpacing.lg,
-                      96,
-                    ),
-                    itemCount: catalog.products.length,
-                    itemBuilder: (context, index) {
-                      final p = catalog.products[index];
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: IanovaSpacing.md),
-                        decoration: sellerCardDecoration(),
-                        child: ListTile(
-                          onTap: () => _openForm(p),
-                          leading: _ProductThumb(product: p),
-                          contentPadding: const EdgeInsets.fromLTRB(16, 6, 4, 6),
-                          title: Text(
-                            p.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Wrap(
-                              spacing: 8,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                Text(formatKsh(p.price)),
-                                Text(
-                                  'Stock ${p.stock}',
-                                  style: TextStyle(
-                                    color: p.stock <= 3
-                                        ? IanovaColors.danger
-                                        : IanovaColors.secondary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                SellerPill(
-                                  p.status == 'approved'
-                                      ? 'Live'
-                                      : sellerLabel(p.status),
-                                  color: SellerPill.forStatus(p.status),
-                                ),
-                              ],
+              ),
+            ),
+            for (final p in products)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: IanovaColors.border)),
+                ),
+                child: Row(
+                  children: [
+                    _cell(
+                      _wProduct,
+                      Row(
+                        children: [
+                          _ProductThumb(product: p, size: 40),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              p.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w800),
                             ),
                           ),
-                          trailing: PopupMenuButton<String>(
+                        ],
+                      ),
+                    ),
+                    _cell(_wPrice, Text(formatKsh(p.price))),
+                    _cell(
+                      _wStock,
+                      Text(
+                        '${p.stock}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: p.stock <= 3
+                              ? IanovaColors.danger
+                              : IanovaColors.primary,
+                        ),
+                      ),
+                    ),
+                    _cell(
+                      _wStatus,
+                      Text(
+                        sellerLabel(p.status),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: SellerPill.forStatus(p.status),
+                        ),
+                      ),
+                    ),
+                    _cell(_wFlash, Text(p.isFlashDeal ? 'Yes' : 'No')),
+                    _cell(
+                      _wActions,
+                      Row(
+                        children: [
+                          FilledButton(
+                            onPressed: () => _openForm(p),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: IanovaColors.primary,
+                              minimumSize: const Size(0, 36),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 14),
+                            ),
+                            child: const Text('Edit'),
+                          ),
+                          PopupMenuButton<String>(
                             onSelected: (value) {
-                              if (value == 'edit') _openForm(p);
                               if (value == 'stock') _editStock(p);
                               if (value == 'delete') _delete(p);
                             },
                             itemBuilder: (_) => const [
-                              PopupMenuItem(value: 'edit', child: Text('Edit')),
                               PopupMenuItem(
                                 value: 'stock',
                                 child: Text('Update stock'),
@@ -243,11 +271,68 @@ class _SellerProductsTabState extends State<SellerProductsTab> {
                               ),
                             ],
                           ),
-                        ),
-                      );
-                    },
-                  ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final catalog = _catalog;
+
+    return RefreshIndicator(
+      onRefresh: () =>
+          _refresh(() => widget.service.fetchCatalog(widget.session.token)),
+      child: catalog == null
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                SizedBox(height: 120),
+                Center(child: CircularProgressIndicator()),
+              ],
+            )
+          : ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(IanovaSpacing.lg),
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Your products (${catalog.products.length})',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    FilledButton(
+                      onPressed: () => _openForm(),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: IanovaColors.primary,
+                        minimumSize: const Size(0, 44),
+                      ),
+                      child: const Text('+ Add product'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: IanovaSpacing.md),
+                if (catalog.products.isEmpty)
+                  const Text(
+                    "You haven't added any products yet.",
+                    style: TextStyle(color: IanovaColors.secondary),
+                  )
+                else
+                  _table(catalog.products),
+              ],
+            ),
     );
   }
 }

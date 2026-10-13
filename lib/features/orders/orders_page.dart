@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/config/api_config.dart';
 import '../../core/format/money.dart';
 
 import '../../core/network/api_service.dart';
@@ -648,7 +649,15 @@ class _OrderItemCard extends StatelessWidget {
                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.shopping_bag_outlined),
+              clipBehavior: Clip.antiAlias,
+              child: item.image.isEmpty
+                  ? const Icon(Icons.shopping_bag_outlined)
+                  : Image.network(
+                      IanovaApiConfig.imageUrl(item.image),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.shopping_bag_outlined),
+                    ),
             ),
             const SizedBox(width: _spaceSm),
             Expanded(

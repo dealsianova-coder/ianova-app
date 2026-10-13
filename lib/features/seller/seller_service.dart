@@ -285,14 +285,52 @@ class SellerService {
     );
   }
 
-  Future<List<SellerOrder>> fetchOrders(String token) async {
-    final data = await _send('GET', 'seller_orders.php', token: token);
+  SellerOrdersData _ordersFrom(Map<String, dynamic> data) {
     final raw = (data['orders'] as List?) ?? const [];
 
-    return raw
-        .whereType<Map>()
-        .map((o) => SellerOrder.fromJson(Map<String, dynamic>.from(o)))
-        .toList();
+    return SellerOrdersData(
+      autoApprove: data['auto_approve_orders'] == true,
+      pending: int.tryParse(data['pending_orders']?.toString() ?? '') ?? 0,
+      orders: raw
+          .whereType<Map>()
+          .map((o) => SellerOrder.fromJson(Map<String, dynamic>.from(o)))
+          .toList(),
+    );
+  }
+
+  Future<SellerOrdersData> fetchOrders(String token) async {
+    return _ordersFrom(await _send('GET', 'seller_orders.php', token: token));
+  }
+
+  Future<SellerOrdersData> decideOrder(
+    String token,
+    int orderId, {
+    required bool approve,
+    String reason = '',
+  }) async {
+    return _ordersFrom(
+      await _send(
+        'POST',
+        'seller_orders.php',
+        token: token,
+        body: {
+          'action': approve ? 'approve' : 'reject',
+          'order_id': orderId,
+          'reason': reason.trim(),
+        },
+      ),
+    );
+  }
+
+  Future<SellerOrdersData> setAutoOrders(String token, bool enabled) async {
+    return _ordersFrom(
+      await _send(
+        'POST',
+        'seller_orders.php',
+        token: token,
+        body: {'action': 'auto', 'enabled': enabled},
+      ),
+    );
   }
 
   Future<SellerSummary> fetchSummary(String token) async {

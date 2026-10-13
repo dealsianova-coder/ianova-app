@@ -125,6 +125,27 @@ class _SellerOverviewTabState extends State<SellerOverviewTab> {
                     ],
                   ),
                 ),
+                if (s.pendingOrders > 0) ...[
+                  const SizedBox(height: IanovaSpacing.md),
+                  Container(
+                    padding: const EdgeInsets.all(IanovaSpacing.md),
+                    decoration: sellerCardDecoration(IanovaColors.sand),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.notifications_active_outlined),
+                        const SizedBox(width: IanovaSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            '${s.pendingOrders} order'
+                            '${s.pendingOrders == 1 ? '' : 's'} waiting for '
+                            'your approval. Open the Orders tab.',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: IanovaSpacing.md),
                 GridView.count(
                   crossAxisCount: 2,

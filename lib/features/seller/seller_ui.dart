@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/config/api_config.dart';
 import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
 import 'seller_service.dart';
@@ -94,4 +95,54 @@ BoxDecoration sellerCardDecoration([Color? color]) {
     borderRadius: BorderRadius.circular(IanovaSpacing.radiusLarge),
     border: color == null ? Border.all(color: IanovaColors.border) : null,
   );
+}
+
+Color sellerHex(String hex) {
+  final clean = hex.replaceFirst('#', '');
+  final value = clean.length == 6 ? int.tryParse(clean, radix: 16) : null;
+
+  return value == null ? const Color(0xFFEFF3EC) : Color(0xFF000000 | value);
+}
+
+/// Product photo, or the emoji on a coloured tile when there is no photo.
+class SellerThumb extends StatelessWidget {
+  const SellerThumb({
+    super.key,
+    required this.image,
+    required this.emoji,
+    required this.bgColor,
+    this.size = 52,
+  });
+
+  final String image;
+  final String emoji;
+  final String bgColor;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Center(
+      child: Text(
+        emoji.isEmpty ? '📦' : emoji,
+        style: TextStyle(fontSize: size * 0.5),
+      ),
+    );
+
+    return Container(
+      width: size,
+      height: size,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: sellerHex(bgColor),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: image.isEmpty
+          ? fallback
+          : Image.network(
+              IanovaApiConfig.imageUrl(image),
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => fallback,
+            ),
+    );
+  }
 }

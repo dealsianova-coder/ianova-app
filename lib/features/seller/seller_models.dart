@@ -142,11 +142,19 @@ class SellerOrderItem {
     required this.name,
     required this.quantity,
     required this.unitPrice,
+    required this.status,
+    required this.image,
+    required this.emoji,
+    required this.bgColor,
   });
 
   final String name;
   final int quantity;
   final double unitPrice;
+  final String status;
+  final String image;
+  final String emoji;
+  final String bgColor;
 }
 
 class SellerOrder {
@@ -156,6 +164,7 @@ class SellerOrder {
     required this.phone,
     required this.address,
     required this.status,
+    required this.sellerStatus,
     required this.createdAt,
     required this.subtotal,
     required this.items,
@@ -166,6 +175,7 @@ class SellerOrder {
   final String phone;
   final String address;
   final String status;
+  final String sellerStatus;
   final String createdAt;
   final double subtotal;
   final List<SellerOrderItem> items;
@@ -179,6 +189,7 @@ class SellerOrder {
       phone: j['phone']?.toString() ?? '',
       address: j['address']?.toString() ?? '',
       status: j['status']?.toString() ?? '',
+      sellerStatus: j['seller_status']?.toString() ?? 'approved',
       createdAt: j['created_at']?.toString() ?? '',
       subtotal: _asDouble(j['subtotal']),
       items: raw.whereType<Map>().map((i) {
@@ -186,10 +197,26 @@ class SellerOrder {
           name: i['name']?.toString() ?? '',
           quantity: _asInt(i['quantity']),
           unitPrice: _asDouble(i['unit_price']),
+          status: i['status']?.toString() ?? 'pending',
+          image: i['image']?.toString() ?? '',
+          emoji: i['emoji']?.toString() ?? '',
+          bgColor: i['bg_color']?.toString() ?? '#EFF3EC',
         );
       }).toList(),
     );
   }
+}
+
+class SellerOrdersData {
+  const SellerOrdersData({
+    required this.orders,
+    required this.autoApprove,
+    required this.pending,
+  });
+
+  final List<SellerOrder> orders;
+  final bool autoApprove;
+  final int pending;
 }
 
 class SellerSales {
@@ -236,6 +263,7 @@ class SellerSummary {
     required this.rejected,
     required this.lowStock,
     required this.top,
+    this.pendingOrders = 0,
   });
 
   final SellerSales allTime;
@@ -246,6 +274,7 @@ class SellerSummary {
   final int rejected;
   final int lowStock;
   final List<SellerTopProduct> top;
+  final int pendingOrders;
 
   factory SellerSummary.fromJson(Map<String, dynamic> j) {
     final products = j['products'] is Map
@@ -261,6 +290,7 @@ class SellerSummary {
       pending: _asInt(products['pending']),
       rejected: _asInt(products['rejected']),
       lowStock: _asInt(j['low_stock']),
+      pendingOrders: _asInt(j['pending_orders']),
       top: top.whereType<Map>().map((t) {
         return SellerTopProduct(
           name: t['name']?.toString() ?? '',
