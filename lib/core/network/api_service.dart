@@ -995,6 +995,7 @@ class Category {
     required this.name,
     required this.slug,
     required this.emoji,
+    this.image = '',
     required this.sortOrder,
   });
 
@@ -1002,6 +1003,7 @@ class Category {
   final String name;
   final String slug;
   final String emoji;
+  final String image;
   final int sortOrder;
 
   factory Category.fromJson(Map<String, dynamic> json) {
@@ -1010,6 +1012,7 @@ class Category {
       name: json['name']?.toString() ?? '',
       slug: json['slug']?.toString() ?? '',
       emoji: json['emoji']?.toString() ?? '',
+      image: json['image']?.toString() ?? '',
       sortOrder: int.tryParse(json['sort_order'].toString()) ?? 0,
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_service.dart';
 import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
+import '../../widgets/category_icon.dart';
 import '../../models/product.dart';
 import '../../widgets/ianova_product_card.dart';
 import '../../widgets/product_browser.dart';
@@ -224,11 +225,11 @@ class _CategoryCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 alignment: Alignment.center,
-                child: Text(
-                  category.emoji,
-                  style: const TextStyle(
-                    fontSize: 32,
-                  ),
+                child: CategoryIcon(
+                  category: category,
+                  size: 64,
+                  fontSize: 32,
+                  radius: 20,
                 ),
               ),
               const SizedBox(height: IanovaSpacing.md),

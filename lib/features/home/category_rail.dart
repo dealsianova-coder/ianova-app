@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_service.dart';
 import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
+import '../../widgets/category_icon.dart';
 
 /// A row of round category shortcuts. The first tile opens the full list.
 class CategoryRail extends StatelessWidget {
@@ -44,9 +45,11 @@ class CategoryRail extends StatelessWidget {
                 for (final category in categories)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: Text(
-                      category.emoji,
-                      style: const TextStyle(fontSize: 22),
+                    leading: CategoryIcon(
+                      category: category,
+                      size: 38,
+                      fontSize: 22,
+                      radius: 12,
                     ),
                     title: Text(
                       category.name,
@@ -106,9 +109,10 @@ class CategoryRail extends StatelessWidget {
               label: category.name,
               filled: false,
               onTap: () => onSelect(category),
-              child: Text(
-                category.emoji,
-                style: const TextStyle(fontSize: 26),
+              child: CategoryIcon(
+                category: category,
+                size: 58,
+                fontSize: 26,
               ),
             ),
         ],
