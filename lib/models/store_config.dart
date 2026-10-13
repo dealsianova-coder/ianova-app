@@ -33,6 +33,50 @@ class HomeBanner {
   }
 }
 
+/// Admin-controlled video ad that interrupts the hero carousel on a timer.
+class VideoAdConfig {
+  const VideoAdConfig({
+    this.enabled = false,
+    this.src = '',
+    this.intervalMinutes = 3,
+    this.minSeconds = 30,
+    this.linkType = 'none',
+    this.linkValue = '',
+  });
+
+  final bool enabled;
+  final String src;
+  final int intervalMinutes;
+  final int minSeconds;
+  final String linkType;
+  final String linkValue;
+
+  /// True only when there's actually a video configured and switched on.
+  bool get isActive => enabled && src.trim().isNotEmpty;
+
+  bool get hasLink => linkType != 'none' && linkValue.trim().isNotEmpty;
+
+  static const defaults = VideoAdConfig();
+
+  factory VideoAdConfig.fromJson(Map<String, dynamic> json) {
+    bool flag(dynamic value, bool fallback) {
+      if (value is bool) return value;
+      if (value == null) return fallback;
+      return value.toString() != '0' && value.toString() != 'false';
+    }
+
+    return VideoAdConfig(
+      enabled: flag(json['enabled'], false),
+      src: json['src']?.toString() ?? '',
+      intervalMinutes:
+          int.tryParse(json['interval_minutes']?.toString() ?? '') ?? 3,
+      minSeconds: int.tryParse(json['min_seconds']?.toString() ?? '') ?? 30,
+      linkType: json['link_type']?.toString() ?? 'none',
+      linkValue: json['link_value']?.toString() ?? '',
+    );
+  }
+}
+
 /// Front-store settings the admin controls (flash deals, sections, announcement).
 class StoreConfig {
   const StoreConfig({
@@ -47,6 +91,7 @@ class StoreConfig {
     this.supportPhone = '',
     this.supportEmail = '',
     this.banners = const [],
+    this.videoAd = VideoAdConfig.defaults,
   });
 
   final bool flashActive;
@@ -60,6 +105,7 @@ class StoreConfig {
   final String supportPhone;
   final String supportEmail;
   final List<HomeBanner> banners;
+  final VideoAdConfig videoAd;
 
   static const defaults = StoreConfig();
 
@@ -91,6 +137,11 @@ class StoreConfig {
             .toList()
         : <HomeBanner>[];
 
+    final rawVideoAd = json['video_ad'];
+    final videoAd = rawVideoAd is Map
+        ? VideoAdConfig.fromJson(Map<String, dynamic>.from(rawVideoAd))
+        : VideoAdConfig.defaults;
+
     return StoreConfig(
       flashActive: flag(flash, 'active', true),
       flashEndsAt: endsRaw == null ? null : DateTime.tryParse(endsRaw)?.toLocal(),
@@ -105,6 +156,7 @@ class StoreConfig {
       supportPhone: support['phone']?.toString().trim() ?? '',
       supportEmail: support['email']?.toString().trim() ?? '',
       banners: banners,
+      videoAd: videoAd,
     );
   }
 }

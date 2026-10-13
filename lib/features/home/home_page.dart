@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/network/api_service.dart';
 import '../../core/state/wishlist_controller.dart';
@@ -18,6 +21,7 @@ import 'flash_deals_section.dart';
 import 'hero_carousel.dart';
 import 'product_list_page.dart';
 import 'recently_viewed_section.dart';
+import 'video_ad_section.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -44,6 +48,11 @@ class _HomePageState extends State<HomePage> {
   bool _isLoading = true;
   String? _error;
 
+  bool _showingVideoAd = false;
+  Timer? _videoAdCycleTimer;
+  Timer? _videoAdHideTimer;
+  bool _videoAdTimersArmedFor = false; // guards against re-arming on every rebuild
+
   @override
   void initState() {
     super.initState();
@@ -55,8 +64,95 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     RecentProducts.changes.removeListener(_loadRecent);
+    _videoAdCycleTimer?.cancel();
+    _videoAdHideTimer?.cancel();
     _api.dispose();
     super.dispose();
+  }
+
+  void _armVideoAd() {
+    final ad = _store.videoAd;
+    if (!ad.isActive) {
+      _videoAdCycleTimer?.cancel();
+      _videoAdHideTimer?.cancel();
+      _videoAdTimersArmedFor = false;
+      if (_showingVideoAd) setState(() => _showingVideoAd = false);
+      return;
+    }
+
+    if (_store.banners.isEmpty) {
+      // No banners to fall back to — the ad just takes over that slot
+      // permanently and loops itself (see VideoAdSection).
+      _videoAdCycleTimer?.cancel();
+      _videoAdHideTimer?.cancel();
+      if (!_showingVideoAd) setState(() => _showingVideoAd = true);
+      return;
+    }
+
+    if (_videoAdTimersArmedFor) return; // already running the interval cycle
+    _videoAdTimersArmedFor = true;
+
+    _videoAdCycleTimer?.cancel();
+    _videoAdCycleTimer = Timer.periodic(
+      Duration(minutes: ad.intervalMinutes),
+      (_) {
+        if (!mounted) return;
+        setState(() => _showingVideoAd = true);
+        _videoAdHideTimer?.cancel();
+        _videoAdHideTimer = Timer(Duration(seconds: ad.minSeconds), () {
+          if (mounted) setState(() => _showingVideoAd = false);
+        });
+      },
+    );
+  }
+
+  void _openLink(String linkType, String linkValue) {
+    switch (linkType) {
+      case 'product':
+        final productId = int.tryParse(linkValue);
+        if (productId == null || productId < 1) return;
+
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ProductDetailPage(
+              productId: productId,
+              onCartChanged: widget.onCartChanged,
+            ),
+          ),
+        );
+        break;
+      case 'category':
+        final categoryId = int.tryParse(linkValue);
+
+        for (final category in _categories) {
+          if (category.id == categoryId) {
+            _openCategory(category);
+            return;
+          }
+        }
+        break;
+      case 'search':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SearchPage(
+              initialQuery: linkValue,
+              onProductTap: widget.onProductTap,
+              onCartChanged: widget.onCartChanged,
+            ),
+          ),
+        );
+        break;
+      case 'url':
+        final trimmed = linkValue.trim();
+        if (trimmed.isEmpty) return;
+        final uri = trimmed.startsWith('http://') || trimmed.startsWith('https://')
+            ? Uri.tryParse(trimmed)
+            : Uri.tryParse('${_api.baseUrl}/${trimmed.startsWith('/') ? trimmed.substring(1) : trimmed}');
+        if (uri != null) {
+          launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+        break;
+    }
   }
 
   Future<void> _loadStorefront() async {
@@ -107,6 +203,7 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _store = config;
       });
+      _armVideoAd();
     } catch (_) {
       // Keep the defaults when the server has no store config yet.
     }
@@ -123,43 +220,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openBanner(HomeBanner banner) {
-    switch (banner.linkType) {
-      case 'product':
-        final productId = int.tryParse(banner.linkValue);
-
-        if (productId == null || productId < 1) return;
-
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ProductDetailPage(
-              productId: productId,
-              onCartChanged: widget.onCartChanged,
-            ),
-          ),
-        );
-        break;
-      case 'category':
-        final categoryId = int.tryParse(banner.linkValue);
-
-        for (final category in _categories) {
-          if (category.id == categoryId) {
-            _openCategory(category);
-            return;
-          }
-        }
-        break;
-      case 'search':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => SearchPage(
-              initialQuery: banner.linkValue,
-              onProductTap: widget.onProductTap,
-              onCartChanged: widget.onCartChanged,
-            ),
-          ),
-        );
-        break;
-    }
+    _openLink(banner.linkType, banner.linkValue);
   }
 
   void _openSale() {
@@ -297,13 +358,25 @@ class _HomePageState extends State<HomePage> {
             )
           else ...[
             SliverToBoxAdapter(
-              child: HeroCarousel(
-                products: flashDeals.isNotEmpty ? flashDeals : _products,
-                onProductTap: (product) =>
-                    widget.onProductTap?.call(product),
-                banners: _store.banners,
-                onBannerTap: _openBanner,
-              ),
+              child: (_showingVideoAd && _store.videoAd.isActive)
+                  ? VideoAdSection(
+                      key: ValueKey('video-ad-${_store.videoAd.src}'),
+                      config: _store.videoAd,
+                      loopContinuously: _store.banners.isEmpty,
+                      onCtaTap: _store.videoAd.hasLink
+                          ? () => _openLink(
+                                _store.videoAd.linkType,
+                                _store.videoAd.linkValue,
+                              )
+                          : null,
+                    )
+                  : HeroCarousel(
+                      products: flashDeals.isNotEmpty ? flashDeals : _products,
+                      onProductTap: (product) =>
+                          widget.onProductTap?.call(product),
+                      banners: _store.banners,
+                      onBannerTap: _openBanner,
+                    ),
             ),
             if (flashDeals.isNotEmpty && _store.flashActive)
               SliverToBoxAdapter(
