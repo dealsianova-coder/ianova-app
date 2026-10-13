@@ -25,6 +25,7 @@ class _AdminBroadcastPageState extends State<AdminBroadcastPage> {
   bool _loading = true;
   bool _sending = false;
   bool _mention = true;
+  bool _email = false;
   String _status = '';
   String? _error;
 
@@ -180,8 +181,15 @@ class _AdminBroadcastPageState extends State<AdminBroadcastPage> {
           'ids': _selected.toList(),
           'mention': _mention,
           'status': _status,
+          'email': _email,
         },
       );
+
+      final emailed = int.tryParse('${data['emailed']}') ?? 0;
+      final emailFailed = int.tryParse('${data['email_failed']}') ?? 0;
+      final emailNote = emailed + emailFailed > 0
+          ? 'Emailed $emailed${emailFailed > 0 ? ', $emailFailed failed' : ''}.\n\n'
+          : '';
 
       final names = [
         for (final name in (data['names'] is List ? data['names'] as List : []))
@@ -201,7 +209,9 @@ class _AdminBroadcastPageState extends State<AdminBroadcastPage> {
               '${names.length == 1 ? '' : 's'}'),
           content: SizedBox(
             width: double.maxFinite,
-            child: SingleChildScrollView(child: Text(names.join('\n'))),
+            child: SingleChildScrollView(
+              child: Text('$emailNote${names.join('\n')}'),
+            ),
           ),
           actions: [
             FilledButton(
@@ -275,6 +285,13 @@ class _AdminBroadcastPageState extends State<AdminBroadcastPage> {
                       ),
                       value: _mention,
                       onChanged: (value) => setState(() => _mention = value),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Also email each seller'),
+                      subtitle: const Text('Sends a copy to their email address. Slower.'),
+                      value: _email,
+                      onChanged: (value) => setState(() => _email = value),
                     ),
                     if (_selected.isNotEmpty &&
                         (_message.text.trim().isNotEmpty || _mention))
