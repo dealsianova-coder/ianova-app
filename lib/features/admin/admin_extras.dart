@@ -7,6 +7,7 @@ import '../../core/state/app_badges.dart';
 import '../../core/theme/ianova_theme.dart';
 import '../../widgets/panel_ui.dart';
 import 'admin_api.dart';
+import 'admin_broadcast.dart';
 
 void _say(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(
@@ -253,6 +254,45 @@ class _AdminSellersTabState extends State<AdminSellersTab> {
     }
   }
 
+  Widget _broadcastCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: IanovaColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: IanovaColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Message all sellers',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Send one notice to every seller, each greeted by name, and optionally approve or suspend them.',
+          ),
+          const SizedBox(height: 10),
+          FilledButton.icon(
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => AdminBroadcastPage(onExpired: widget.onExpired),
+                ),
+              );
+
+              await _load();
+              await AppBadges.refreshAdmin();
+            },
+            icon: const Icon(Icons.campaign_rounded),
+            label: const Text('Write a message'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Color _statusColor(String status) {
     switch (status) {
       case 'approved':
@@ -285,10 +325,12 @@ class _AdminSellersTabState extends State<AdminSellersTab> {
       onRefresh: _load,
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
-        itemCount: _items.length,
+        itemCount: _items.length + 1,
         separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
-          final seller = _items[index];
+          if (index == 0) return _broadcastCard(context);
+
+          final seller = _items[index - 1];
           final unread = int.tryParse('${seller['unread']}') ?? 0;
           final status = '${seller['status']}';
           final last = '${seller['last_message'] ?? ''}';
