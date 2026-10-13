@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/config/api_config.dart';
 import '../../core/format/money.dart';
 import '../../core/network/api_service.dart' show ApiException;
 import '../../core/theme/ianova_spacing.dart';
@@ -481,6 +482,8 @@ class _OrdersTabState extends State<_OrdersTab> {
                       fontSize: 12,
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  _OrderThumbs(items: order['items']),
                   const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
@@ -1300,6 +1303,94 @@ class _StoreTabState extends State<_StoreTab> {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Product photos of an order, each with its quantity.
+class _OrderThumbs extends StatelessWidget {
+  const _OrderThumbs({required this.items});
+
+  final Object? items;
+
+  Color _hex(String hex) {
+    final clean = hex.replaceFirst('#', '');
+    final value = clean.length == 6 ? int.tryParse(clean, radix: 16) : null;
+
+    return value == null ? const Color(0xFFEFF3EC) : Color(0xFF000000 | value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final list = items is List ? (items as List).whereType<Map>().toList() : [];
+
+    if (list.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final item in list)
+          Tooltip(
+            message: '${item['quantity']} × ${item['name']}',
+            child: SizedBox(
+              width: 52,
+              height: 52,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Container(
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
+                        color: _hex('${item['bg_color'] ?? ''}'),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: '${item['image'] ?? ''}'.isEmpty
+                          ? Center(
+                              child: Text(
+                                '${item['emoji'] ?? ''}'.isEmpty
+                                    ? '📦'
+                                    : '${item['emoji']}',
+                                style: const TextStyle(fontSize: 24),
+                              ),
+                            )
+                          : Image.network(
+                              IanovaApiConfig.imageUrl('${item['image']}'),
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  const Icon(Icons.image_not_supported_outlined),
+                            ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: IanovaColors.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '×${item['quantity']}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }
