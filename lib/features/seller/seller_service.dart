@@ -383,6 +383,70 @@ class SellerService {
     );
   }
 
+  // ---- Website-style panel ------------------------------------------------
+
+  PanelOrdersData _panelOrdersFrom(Map<String, dynamic> data) {
+    final raw = (data['orders'] as List?) ?? const [];
+
+    return PanelOrdersData(
+      autoMaster: data['auto_master'] == true,
+      autoMine: data['auto_mine'] == true,
+      orders: raw
+          .whereType<Map>()
+          .map((o) => PanelOrder.fromJson(Map<String, dynamic>.from(o)))
+          .toList(),
+    );
+  }
+
+  Future<PanelDashboard> fetchDashboard(String token) async {
+    return PanelDashboard.fromJson(
+      await _send('GET', 'seller_dashboard.php', token: token),
+    );
+  }
+
+  Future<PanelOrdersData> fetchPanelOrders(String token) async {
+    return _panelOrdersFrom(
+      await _send('GET', 'seller_orders.php', token: token),
+    );
+  }
+
+  Future<PanelOrdersData> approvePanelOrder(String token, int orderId) async {
+    return _panelOrdersFrom(
+      await _send(
+        'POST',
+        'seller_orders.php',
+        token: token,
+        body: {'action': 'approve', 'order_id': orderId},
+      ),
+    );
+  }
+
+  Future<PanelOrdersData> setPanelAuto(String token, bool enabled) async {
+    return _panelOrdersFrom(
+      await _send(
+        'POST',
+        'seller_orders.php',
+        token: token,
+        body: {'action': 'auto', 'enabled': enabled},
+      ),
+    );
+  }
+
+  Future<SellerCatalog> requestReview(
+    String token,
+    int productId,
+    String note,
+  ) async {
+    return _catalogFrom(
+      await _send(
+        'POST',
+        'seller_products.php',
+        token: token,
+        body: {'action': 'request_review', 'id': productId, 'note': note},
+      ),
+    );
+  }
+
   void dispose() {
     _client.close();
   }

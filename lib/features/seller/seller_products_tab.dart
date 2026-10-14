@@ -8,6 +8,7 @@ import '../../core/format/money.dart';
 import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
 import 'seller_models.dart';
+import 'seller_panel_ui.dart';
 import 'seller_service.dart';
 import 'seller_ui.dart';
 
@@ -17,11 +18,17 @@ class SellerProductsTab extends StatefulWidget {
     required this.session,
     required this.service,
     required this.onExpired,
+    this.openAddOnLoad = false,
+    this.initialFilter = 'all',
+    this.onChanged,
   });
 
   final SellerSession session;
   final SellerService service;
   final VoidCallback onExpired;
+  final bool openAddOnLoad;
+  final String initialFilter;
+  final VoidCallback? onChanged;
 
   @override
   State<SellerProductsTab> createState() => _SellerProductsTabState();
@@ -29,6 +36,10 @@ class SellerProductsTab extends StatefulWidget {
 
 class _SellerProductsTabState extends State<SellerProductsTab> {
   SellerCatalog? _catalog;
+  String _query = '';
+  late String _filter = widget.initialFilter;
+  bool _grid = true;
+  bool _opened = false;
 
   @override
   void initState() {
@@ -50,6 +61,15 @@ class _SellerProductsTabState extends State<SellerProductsTab> {
           _catalog ??
           const SellerCatalog(products: [], categories: []);
     });
+
+    if (catalog != null) widget.onChanged?.call();
+
+    if (widget.openAddOnLoad && !_opened && _catalog != null) {
+      _opened = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openForm();
+      });
+    }
   }
 
   Future<void> _openForm([SellerProduct? product]) async {
@@ -71,6 +91,7 @@ class _SellerProductsTabState extends State<SellerProductsTab> {
 
     if (result != null && mounted) {
       setState(() => _catalog = result);
+      widget.onChanged?.call();
     }
   }
 
@@ -136,149 +157,252 @@ class _SellerProductsTabState extends State<SellerProductsTab> {
     );
   }
 
-  static const double _wProduct = 230;
-  static const double _wPrice = 110;
-  static const double _wStock = 70;
-  static const double _wStatus = 90;
-  static const double _wFlash = 90;
-  static const double _wActions = 120;
+  Future<void> _requestReview(SellerProduct product) async {
+    final controller = TextEditingController();
 
-  Widget _cell(double width, Widget child) {
-    return SizedBox(width: width, child: child);
+    final note = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Request a review'),
+        content: TextField(
+          controller: controller,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Note for the admin (optional)',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+
+    if (note == null || !mounted) return;
+
+    final sent = await runSeller<SellerCatalog>(
+      context: context,
+      onExpired: widget.onExpired,
+      action: () =>
+          widget.service.requestReview(widget.session.token, product.id, note),
+    );
+
+    if (sent != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Review requested. The admin was told.')),
+      );
+    }
   }
 
-  Widget _head(double width, String text) {
-    return _cell(
-      width,
-      Text(
-        text.toUpperCase(),
-        style: const TextStyle(
-          fontSize: 12,
-          letterSpacing: 0.7,
-          fontWeight: FontWeight.w700,
-          color: IanovaColors.secondary,
-        ),
+  String _kind(String status) {
+    if (status == 'approved') return 'ok';
+    if (status == 'pending') return 'warn';
+
+    return 'bad';
+  }
+
+  List<SellerProduct> _visible(SellerCatalog catalog) {
+    final q = _query.trim().toLowerCase();
+
+    return catalog.products.where((p) {
+      if (q.isNotEmpty && !p.name.toLowerCase().contains(q)) return false;
+      if (_filter == 'approved') return p.status == 'approved';
+      if (_filter == 'pending') return p.status == 'pending';
+      if (_filter == 'locked') return p.locked;
+
+      return true;
+    }).toList();
+  }
+
+  Widget _photo(SellerProduct p) {
+    return LayoutBuilder(
+      builder: (context, box) => SellerThumb(
+        image: p.image,
+        emoji: p.emoji,
+        bgColor: p.bgColor,
+        size: box.maxWidth,
       ),
     );
   }
 
-  /// Same columns as the website's seller dashboard table.
-  Widget _table(List<SellerProduct> products) {
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: IanovaColors.border),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              color: IanovaColors.soft,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: Row(
-                children: [
-                  _head(_wProduct, 'Product'),
-                  _head(_wPrice, 'Price'),
-                  _head(_wStock, 'Stock'),
-                  _head(_wStatus, 'Status'),
-                  _head(_wFlash, 'Flash deal'),
-                  _head(_wActions, 'Actions'),
-                ],
-              ),
+  Widget _actions(SellerProduct p) {
+    if (p.locked) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Locked by admin',
+            style: TextStyle(
+              color: Color(0xFFB00F2F),
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
             ),
-            for (final p in products)
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: const BoxDecoration(
-                  border: Border(top: BorderSide(color: IanovaColors.border)),
-                ),
-                child: Row(
-                  children: [
-                    _cell(
-                      _wProduct,
-                      Row(
-                        children: [
-                          _ProductThumb(product: p, size: 40),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              p.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    _cell(_wPrice, Text(formatKsh(p.price))),
-                    _cell(
-                      _wStock,
-                      Text(
-                        '${p.stock}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: p.stock <= 3
-                              ? IanovaColors.danger
-                              : IanovaColors.primary,
-                        ),
-                      ),
-                    ),
-                    _cell(
-                      _wStatus,
-                      Text(
-                        sellerLabel(p.status),
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: SellerPill.forStatus(p.status),
-                        ),
-                      ),
-                    ),
-                    _cell(_wFlash, Text(p.isFlashDeal ? 'Yes' : 'No')),
-                    _cell(
-                      _wActions,
-                      Row(
-                        children: [
-                          FilledButton(
-                            onPressed: () => _openForm(p),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: IanovaColors.primary,
-                              minimumSize: const Size(0, 36),
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 14),
-                            ),
-                            child: const Text('Edit'),
-                          ),
-                          PopupMenuButton<String>(
-                            onSelected: (value) {
-                              if (value == 'stock') _editStock(p);
-                              if (value == 'delete') _delete(p);
-                            },
-                            itemBuilder: (_) => const [
-                              PopupMenuItem(
-                                value: 'stock',
-                                child: Text('Update stock'),
-                              ),
-                              PopupMenuItem(
-                                value: 'delete',
-                                child: Text('Delete'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () => _requestReview(p),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 38),
+                padding: EdgeInsets.zero,
               ),
+              child: const Text('Request review'),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: FilledButton(
+            onPressed: () => _openForm(p),
+            style: FilledButton.styleFrom(
+              backgroundColor: IanovaColors.primary,
+              minimumSize: const Size(0, 38),
+              padding: EdgeInsets.zero,
+            ),
+            child: const Text('Edit'),
+          ),
+        ),
+        PopupMenuButton<String>(
+          onSelected: (value) {
+            if (value == 'stock') _editStock(p);
+            if (value == 'delete') _delete(p);
+          },
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'stock', child: Text('Update stock')),
+            PopupMenuItem(value: 'delete', child: Text('Delete')),
           ],
         ),
+      ],
+    );
+  }
+
+  Widget _pills(SellerProduct p) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      children: [
+        SPill(sellerLabel(p.status), _kind(p.status)),
+        if (p.isFlashDeal) const SPill('Flash', 'warn'),
+        if (p.stock <= 3 && p.status == 'approved')
+          const SPill('Low stock', 'bad'),
+      ],
+    );
+  }
+
+  Widget _card(SellerProduct p) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: IanovaColors.border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D0F0F12),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _photo(p),
+          const SizedBox(height: 10),
+          _pills(p),
+          const SizedBox(height: 6),
+          Text(
+            p.name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+          ),
+          Text(
+            formatKsh(p.price),
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+          ),
+          Text(
+            '${p.categoryName.isEmpty ? '' : '${p.categoryName} · '}Stock ${p.stock}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, color: IanovaColors.secondary),
+          ),
+          const Spacer(),
+          _actions(p),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(SellerProduct p) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: IanovaColors.border),
+      ),
+      child: Row(
+        children: [
+          SellerThumb(
+            image: p.image,
+            emoji: p.emoji,
+            bgColor: p.bgColor,
+            size: 56,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  p.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                Text(
+                  '${formatKsh(p.price)} · Stock ${p.stock}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: IanovaColors.secondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                _pills(p),
+              ],
+            ),
+          ),
+          if (p.locked)
+            TextButton(
+              onPressed: () => _requestReview(p),
+              child: const Text('Request review'),
+            )
+          else
+            FilledButton(
+              onPressed: () => _openForm(p),
+              style: FilledButton.styleFrom(
+                backgroundColor: IanovaColors.primary,
+                minimumSize: const Size(0, 38),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+              ),
+              child: const Text('Edit'),
+            ),
+        ],
       ),
     );
   }
@@ -287,52 +411,97 @@ class _SellerProductsTabState extends State<SellerProductsTab> {
   Widget build(BuildContext context) {
     final catalog = _catalog;
 
+    if (catalog == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final items = _visible(catalog);
+
     return RefreshIndicator(
       onRefresh: () =>
           _refresh(() => widget.service.fetchCatalog(widget.session.token)),
-      child: catalog == null
-          ? ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: const [
-                SizedBox(height: 120),
-                Center(child: CircularProgressIndicator()),
-              ],
-            )
-          : ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(IanovaSpacing.lg),
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Your products (${catalog.products.length})',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    FilledButton(
-                      onPressed: () => _openForm(),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: IanovaColors.primary,
-                        minimumSize: const Size(0, 44),
-                      ),
-                      child: const Text('+ Add product'),
-                    ),
-                  ],
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(IanovaSpacing.lg),
+        children: [
+          Row(
+            children: [
+              FilledButton(
+                onPressed: () => _openForm(),
+                style: FilledButton.styleFrom(
+                  backgroundColor: IanovaColors.primary,
+                  minimumSize: const Size(0, 44),
                 ),
-                const SizedBox(height: IanovaSpacing.md),
-                if (catalog.products.isEmpty)
-                  const Text(
-                    "You haven't added any products yet.",
-                    style: TextStyle(color: IanovaColors.secondary),
-                  )
-                else
-                  _table(catalog.products),
-              ],
-            ),
+                child: const Text('+ Add product'),
+              ),
+              const Spacer(),
+              SegmentedButton<bool>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: true, label: Text('Blocks')),
+                  ButtonSegment(value: false, label: Text('List')),
+                ],
+                selected: {_grid},
+                onSelectionChanged: (v) => setState(() => _grid = v.first),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  onChanged: (v) => setState(() => _query = v),
+                  decoration: const InputDecoration(
+                    hintText: 'Search your products',
+                    prefixIcon: Icon(Icons.search_rounded),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              DropdownButton<String>(
+                value: _filter,
+                underline: const SizedBox.shrink(),
+                items: const [
+                  DropdownMenuItem(value: 'all', child: Text('All')),
+                  DropdownMenuItem(value: 'approved', child: Text('Approved')),
+                  DropdownMenuItem(value: 'pending', child: Text('Pending')),
+                  DropdownMenuItem(value: 'locked', child: Text('Locked')),
+                ],
+                onChanged: (v) => setState(() => _filter = v ?? 'all'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '${items.length} product${items.length == 1 ? '' : 's'}',
+            style: const TextStyle(color: IanovaColors.secondary, fontSize: 13),
+          ),
+          const SizedBox(height: 10),
+          if (items.isEmpty)
+            const PanelBlock(
+              child: Text(
+                'No products here.',
+                style: TextStyle(color: IanovaColors.secondary),
+              ),
+            )
+          else if (_grid)
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: items.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 14,
+                crossAxisSpacing: 14,
+                mainAxisExtent: 350,
+              ),
+              itemBuilder: (_, i) => _card(items[i]),
+            )
+          else
+            for (final p in items) _row(p),
+        ],
+      ),
     );
   }
 }

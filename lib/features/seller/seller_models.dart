@@ -85,8 +85,12 @@ class SellerProduct {
     required this.subcategory,
     required this.color,
     required this.size,
+    this.categoryName = '',
+    this.locked = false,
   });
 
+  final String categoryName;
+  final bool locked;
   final int id;
   final String name;
   final int categoryId;
@@ -121,6 +125,8 @@ class SellerProduct {
       subcategory: j['subcategory']?.toString() ?? '',
       color: j['color']?.toString() ?? '',
       size: j['size']?.toString() ?? '',
+      categoryName: j['category_name']?.toString() ?? '',
+      locked: j['locked'] == true,
     );
   }
 }
@@ -326,6 +332,205 @@ class SellerProfile {
       status: s['status']?.toString() ?? '',
       phone: s['phone']?.toString() ?? '',
       description: s['business_description']?.toString() ?? '',
+    );
+  }
+}
+
+
+// ---- Website-style seller panel -------------------------------------------
+
+class PanelPhoto {
+  const PanelPhoto({
+    required this.image,
+    required this.emoji,
+    required this.bgColor,
+  });
+
+  final String image;
+  final String emoji;
+  final String bgColor;
+
+  factory PanelPhoto.fromJson(Map<String, dynamic> j) => PanelPhoto(
+        image: j['image']?.toString() ?? '',
+        emoji: j['emoji']?.toString() ?? '',
+        bgColor: j['bg_color']?.toString() ?? '#EFF3EC',
+      );
+}
+
+class PanelLine {
+  const PanelLine({
+    required this.name,
+    required this.option,
+    required this.quantity,
+    required this.lineTotal,
+    required this.photo,
+  });
+
+  final String name;
+  final String option;
+  final int quantity;
+  final double lineTotal;
+  final PanelPhoto photo;
+}
+
+class PanelOrder {
+  const PanelOrder({
+    required this.id,
+    required this.createdAt,
+    required this.status,
+    required this.customer,
+    required this.phone,
+    required this.address,
+    required this.total,
+    required this.approved,
+    required this.canApprove,
+    required this.note,
+    required this.items,
+  });
+
+  final int id;
+  final String createdAt;
+  final String status;
+  final String customer;
+  final String phone;
+  final String address;
+  final double total;
+  final bool approved;
+  final bool canApprove;
+  final String note;
+  final List<PanelLine> items;
+
+  bool get waiting => !approved && status != 'cancelled';
+
+  factory PanelOrder.fromJson(Map<String, dynamic> j) {
+    final raw = (j['items'] as List?) ?? const [];
+
+    return PanelOrder(
+      id: _asInt(j['id']),
+      createdAt: j['created_at']?.toString() ?? '',
+      status: j['status']?.toString() ?? '',
+      customer: j['customer']?.toString() ?? '',
+      phone: j['phone']?.toString() ?? '',
+      address: j['address']?.toString() ?? '',
+      total: _asDouble(j['total']),
+      approved: j['approved'] == true,
+      canApprove: j['can_approve'] == true,
+      note: j['note']?.toString() ?? '',
+      items: raw.whereType<Map>().map((i) {
+        final m = Map<String, dynamic>.from(i);
+
+        return PanelLine(
+          name: m['name']?.toString() ?? '',
+          option: m['option']?.toString() ?? '',
+          quantity: _asInt(m['quantity']),
+          lineTotal: _asDouble(m['line_total']),
+          photo: PanelPhoto.fromJson(m),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class PanelOrdersData {
+  const PanelOrdersData({
+    required this.orders,
+    required this.autoMaster,
+    required this.autoMine,
+  });
+
+  final List<PanelOrder> orders;
+  final bool autoMaster;
+  final bool autoMine;
+
+  bool get autoOn => autoMaster && autoMine;
+}
+
+class PanelRecent {
+  const PanelRecent({
+    required this.id,
+    required this.customer,
+    required this.status,
+    required this.createdAt,
+    required this.mine,
+    required this.approved,
+    required this.photos,
+    required this.more,
+  });
+
+  final int id;
+  final String customer;
+  final String status;
+  final String createdAt;
+  final double mine;
+  final bool approved;
+  final List<PanelPhoto> photos;
+  final int more;
+}
+
+class PanelDashboard {
+  const PanelDashboard({
+    required this.status,
+    required this.products,
+    required this.orders,
+    required this.lowStock,
+    required this.revenue,
+    required this.pendingProducts,
+    required this.pendingOrders,
+    required this.unread,
+    required this.locked,
+    required this.autoMaster,
+    required this.autoMine,
+    required this.recent,
+  });
+
+  final String status;
+  final int products;
+  final int orders;
+  final int lowStock;
+  final double revenue;
+  final int pendingProducts;
+  final int pendingOrders;
+  final int unread;
+  final int locked;
+  final bool autoMaster;
+  final bool autoMine;
+  final List<PanelRecent> recent;
+
+  bool get autoOn => autoMaster && autoMine;
+
+  factory PanelDashboard.fromJson(Map<String, dynamic> j) {
+    final raw = (j['recent'] as List?) ?? const [];
+
+    return PanelDashboard(
+      status: j['status']?.toString() ?? '',
+      products: _asInt(j['products']),
+      orders: _asInt(j['orders']),
+      lowStock: _asInt(j['low_stock']),
+      revenue: _asDouble(j['revenue']),
+      pendingProducts: _asInt(j['pending_products']),
+      pendingOrders: _asInt(j['pending_orders']),
+      unread: _asInt(j['unread_messages']),
+      locked: _asInt(j['locked_products']),
+      autoMaster: j['auto_master'] == true,
+      autoMine: j['auto_mine'] == true,
+      recent: raw.whereType<Map>().map((r) {
+        final m = Map<String, dynamic>.from(r);
+        final photos = (m['photos'] as List?) ?? const [];
+
+        return PanelRecent(
+          id: _asInt(m['id']),
+          customer: m['customer']?.toString() ?? '',
+          status: m['status']?.toString() ?? '',
+          createdAt: m['created_at']?.toString() ?? '',
+          mine: _asDouble(m['mine']),
+          approved: m['approved'] == true,
+          photos: photos
+              .whereType<Map>()
+              .map((x) => PanelPhoto.fromJson(Map<String, dynamic>.from(x)))
+              .toList(),
+          more: _asInt(m['more']),
+        );
+      }).toList(),
     );
   }
 }
