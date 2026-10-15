@@ -9,6 +9,7 @@ import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
 import 'seller_models.dart';
 import 'seller_panel_ui.dart';
+import 'seller_extras.dart';
 import 'seller_service.dart';
 import 'seller_ui.dart';
 
@@ -595,6 +596,7 @@ class _SellerProductFormPageState extends State<SellerProductFormPage> {
   bool _flash = false;
   String? _pickedPath;
   bool _saving = false;
+  final _extras = SellerExtrasController();
 
   @override
   void initState() {
@@ -623,6 +625,10 @@ class _SellerProductFormPageState extends State<SellerProductFormPage> {
     final ids = widget.categories.map((c) => c.id).toSet();
 
     _categoryId = ids.contains(p?.categoryId) ? p?.categoryId : null;
+
+    if (p != null) {
+      _extras.loadExisting(widget.session.token, p.id);
+    }
   }
 
   @override
@@ -636,6 +642,7 @@ class _SellerProductFormPageState extends State<SellerProductFormPage> {
     _color.dispose();
     _size.dispose();
     _emoji.dispose();
+    _extras.dispose();
     super.dispose();
   }
 
@@ -693,6 +700,38 @@ class _SellerProductFormPageState extends State<SellerProductFormPage> {
     if (!mounted) return;
 
     setState(() => _saving = false);
+
+    if (catalog != null && _extras.hasChanges) {
+      var pid = widget.product?.id;
+
+      if (pid == null) {
+        final mine = catalog.products
+            .where((x) => x.name.trim() == _name.text.trim())
+            .toList();
+
+        if (mine.isNotEmpty) {
+          pid = mine.map((x) => x.id).reduce((a, b) => a > b ? a : b);
+        }
+      }
+
+      if (pid != null) {
+        setState(() => _saving = true);
+
+        await runSeller<bool>(
+          context: context,
+          onExpired: widget.onExpired,
+          action: () async {
+            await _extras.upload(widget.session.token, pid!);
+
+            return true;
+          },
+        );
+
+        if (!mounted) return;
+
+        setState(() => _saving = false);
+      }
+    }
 
     if (catalog != null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -929,6 +968,8 @@ class _SellerProductFormPageState extends State<SellerProductFormPage> {
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
+              SellerExtrasSection(controller: _extras),
+              const SizedBox(height: IanovaSpacing.xl),
               TextFormField(
                 controller: _description,
                 minLines: 4,
