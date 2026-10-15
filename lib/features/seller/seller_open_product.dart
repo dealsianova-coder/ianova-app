@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'seller_models.dart';
-import 'seller_products_tab.dart';
+import 'seller_product_view.dart';
 import 'seller_service.dart';
 import 'seller_ui.dart';
 
@@ -47,7 +47,7 @@ Future<void> openSellerProduct({
 
   final result = await Navigator.of(context).push<SellerCatalog>(
     MaterialPageRoute(
-      builder: (_) => SellerProductFormPage(
+      builder: (_) => SellerProductViewPage(
         session: session,
         service: service,
         categories: catalog.categories,
