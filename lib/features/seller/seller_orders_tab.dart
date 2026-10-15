@@ -4,6 +4,7 @@ import '../../core/format/money.dart';
 import '../../core/theme/ianova_theme.dart';
 import 'seller_models.dart';
 import 'seller_panel_ui.dart';
+import 'seller_open_product.dart';
 import 'seller_service.dart';
 import 'seller_ui.dart';
 
@@ -140,7 +141,18 @@ class _SellerOrdersTabState extends State<SellerOrdersTab> {
           ),
           const SizedBox(height: 10),
           for (final it in o.items)
-            Container(
+            InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => openSellerProduct(
+                context: context,
+                session: widget.session,
+                service: widget.service,
+                onExpired: widget.onExpired,
+                name: it.name,
+                option: it.option,
+                onChanged: widget.onChanged,
+              ),
+              child: Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -181,6 +193,7 @@ class _SellerOrdersTabState extends State<SellerOrdersTab> {
                   ),
                 ],
               ),
+            ),
             ),
           Align(
             alignment: Alignment.centerRight,
