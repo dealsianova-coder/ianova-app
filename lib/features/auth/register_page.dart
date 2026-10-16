@@ -126,8 +126,12 @@ class _RegisterPageState extends State<RegisterPage> {
       return 'Create a password.';
     }
 
-    if (password.length < 6) {
-      return 'Password must be at least 6 characters.';
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters.';
+    }
+
+    if (!RegExp(r'[A-Za-z]').hasMatch(password) || !RegExp(r'\d').hasMatch(password)) {
+      return 'Use at least one letter and one number.';
     }
 
     return null;

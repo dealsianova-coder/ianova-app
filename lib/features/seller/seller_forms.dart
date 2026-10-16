@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../auth/forgot_password_page.dart';
 import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
 import 'seller_models.dart';
@@ -250,7 +251,21 @@ class _SellerApplyFormState extends State<SellerApplyForm> {
             },
             enabled: !_isLoading,
           ),
-          const SizedBox(height: IanovaSpacing.xl),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _isLoading
+                  ? null
+                  : () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => ForgotPasswordPage(
+                          kind: 'seller',
+                          initialEmail: _emailController.text.trim(),
+                        ),
+                      )),
+              child: const Text('Forgot password?'),
+            ),
+          ),
+          const SizedBox(height: IanovaSpacing.md),
           SizedBox(
             height: 54,
             child: FilledButton(

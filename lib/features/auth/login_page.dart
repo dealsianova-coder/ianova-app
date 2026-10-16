@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'forgot_password_page.dart';
 import '../../core/theme/ianova_spacing.dart';
 import '../../core/theme/ianova_theme.dart';
 import 'auth_service.dart';
@@ -93,6 +94,13 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _showForgotPasswordMessage() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => ForgotPasswordPage(initialEmail: _emailController.text.trim()),
+    ));
+  }
+
+  // ignore: unused_element
+  void _oldForgotPasswordMessage() {
     showDialog<void>(
       context: context,
       builder: (context) {
