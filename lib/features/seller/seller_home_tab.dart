@@ -138,19 +138,31 @@ class SellerHomeTab extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
-          if (attention.isNotEmpty)
-            PanelBlock(
+          PanelBlock(
               color: const Color(0xFFFFFBF1),
               borderColor: const Color(0xFFF6E3B4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Needs your attention',
-                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Needs your attention',
+                          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      NBadge(d.pendingOrders + d.unread + d.locked + d.pendingProducts),
+                    ],
                   ),
                   const SizedBox(height: 12),
-                  ...attention,
+                  if (attention.isEmpty)
+                    const Text(
+                      'All caught up. Nothing is waiting for you.',
+                      style: TextStyle(color: IanovaColors.secondary),
+                    )
+                  else
+                    ...attention,
                 ],
               ),
             ),
@@ -203,10 +215,10 @@ class SellerHomeTab extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         !d.autoMaster
-                            ? 'IANOVA has switched it off for everyone.'
+                            ? 'IANOVA has switched automatic approval off for everyone, so you approve orders by hand in Orders.'
                             : d.autoMine
-                                ? 'In-stock orders are approved for you.'
-                                : 'You approve each order by hand.',
+                                ? 'When your products are in stock, new orders are approved for you.'
+                                : 'You approve every new order by hand in Orders.',
                         style: const TextStyle(
                           fontSize: 12,
                           color: IanovaColors.secondary,
@@ -220,13 +232,15 @@ class SellerHomeTab extends StatelessWidget {
                       ? () => onGo(4)
                       : () => onToggleAuto!(!d.autoMine),
                   style: FilledButton.styleFrom(
-                    backgroundColor: IanovaColors.primary,
+                    backgroundColor: d.autoMine
+                        ? const Color(0xFFE5173F)
+                        : const Color(0xFF16A34A),
                     foregroundColor: Colors.white,
                     minimumSize: const Size(0, 44),
                     padding: const EdgeInsets.symmetric(horizontal: 18),
                     shape: const StadiumBorder(),
                   ),
-                  child: Text(d.autoMine ? 'Turn off' : 'Turn on'),
+                  child: Text(d.autoMine ? 'Switch off' : 'Switch on'),
                 ),
               ],
             ),

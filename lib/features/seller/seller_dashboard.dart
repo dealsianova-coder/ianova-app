@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/config/api_config.dart';
+
 import '../../core/theme/ianova_theme.dart';
 import 'seller_account_tab.dart';
 import 'seller_auto_tab.dart';
@@ -196,6 +198,32 @@ class _SellerDashboardState extends State<SellerDashboard> {
 
     return Column(
       children: [
+        Container(
+          color: Colors.white,
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(20, 12, 16, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Image.network(
+                IanovaApiConfig.imageUrl('assets/img/ianova-wordmark.png'),
+                height: 30,
+                errorBuilder: (_, __, ___) => const Text(
+                  'IANOVA',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 1.2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 3),
+                child: Text(
+                  'SELLER',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.4, color: IanovaColors.secondary),
+                ),
+              ),
+            ],
+          ),
+        ),
         Container(
           color: Colors.white,
           padding: const EdgeInsets.fromLTRB(4, 8, 16, 4),
