@@ -222,6 +222,8 @@ class SellerHomeTab extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: IanovaColors.primary,
                     foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
                     shape: const StadiumBorder(),
                   ),
                   child: Text(d.autoMine ? 'Turn off' : 'Turn on'),
@@ -249,7 +251,9 @@ class SellerHomeTab extends StatelessWidget {
                       style: FilledButton.styleFrom(
                         backgroundColor: IanovaColors.primary,
                         foregroundColor: Colors.white,
-                        shape: const StadiumBorder(),
+                        minimumSize: const Size(0, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    shape: const StadiumBorder(),
                       ),
                       child: const Text('All orders'),
                     ),
