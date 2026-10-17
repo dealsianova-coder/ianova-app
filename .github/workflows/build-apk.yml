@@ -31,8 +31,21 @@ jobs:
       - run: flutter pub get
       - run: flutter build apk --release
 
+      - name: Keep the shop APK, then build the separate Admin app
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk dist/IANOVA.apk
+          IANOVA_APP_ID=com.example.ianova_admin IANOVA_APP_LABEL="IANOVA Admin" flutter build apk --release -t lib/main_admin.dart
+          cp build/app/outputs/flutter-apk/app-release.apk dist/IANOVA-Admin.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: ianova-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: dist/IANOVA.apk
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ianova-admin-apk
+          path: dist/IANOVA-Admin.apk
           if-no-files-found: error
