@@ -154,9 +154,10 @@ class _SellerOrdersTabState extends State<SellerOrdersTab> {
               ),
               child: Container(
               margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+                color: const Color(0xFFF8F9FC),
+                borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: IanovaColors.border),
               ),
               child: Row(
@@ -165,7 +166,7 @@ class _SellerOrdersTabState extends State<SellerOrdersTab> {
                     image: it.photo.image,
                     emoji: it.photo.emoji,
                     bgColor: it.photo.bgColor,
-                    size: 44,
+                    size: 76,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -174,7 +175,7 @@ class _SellerOrdersTabState extends State<SellerOrdersTab> {
                       children: [
                         Text(
                           it.name,
-                          style: const TextStyle(fontWeight: FontWeight.w800),
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                         ),
                         Text(
                           '${it.quantity} × ${formatKsh(it.quantity == 0 ? 0 : it.lineTotal / it.quantity)}'
