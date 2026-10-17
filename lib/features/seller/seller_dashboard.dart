@@ -96,6 +96,17 @@ class _SellerDashboardState extends State<SellerDashboard> {
           dash: _dash,
           onGo: _go,
           onRefresh: _loadDash,
+          onToggleAuto: (on) async {
+            try {
+              await widget.service.setPanelAuto(widget.session.token, on);
+              await _loadDash();
+            } catch (_) {
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Could not change it. Please try again.')),
+              );
+            }
+          },
         );
       case 1:
         final openAdd = _openAdd;

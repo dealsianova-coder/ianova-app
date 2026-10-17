@@ -53,6 +53,7 @@ Future<void> openSellerProduct({
         categories: catalog.categories,
         product: product,
         onExpired: onExpired,
+        readOnly: true,
       ),
     ),
   );

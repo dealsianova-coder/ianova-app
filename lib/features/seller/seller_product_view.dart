@@ -20,6 +20,7 @@ class SellerProductViewPage extends StatefulWidget {
     required this.categories,
     required this.onExpired,
     required this.product,
+    this.readOnly = false,
   });
 
   final SellerSession session;
@@ -27,6 +28,7 @@ class SellerProductViewPage extends StatefulWidget {
   final List<SellerCategory> categories;
   final VoidCallback onExpired;
   final SellerProduct product;
+  final bool readOnly;
 
   @override
   State<SellerProductViewPage> createState() => _SellerProductViewPageState();
@@ -318,6 +320,7 @@ class _SellerProductViewPageState extends State<SellerProductViewPage> {
                                 categories: widget.categories,
                                 onExpired: widget.onExpired,
                                 product: o,
+                                readOnly: widget.readOnly,
                               ),
                             ),
                           ),
@@ -348,7 +351,12 @@ class _SellerProductViewPageState extends State<SellerProductViewPage> {
                 ],
               )),
             const SizedBox(height: IanovaSpacing.sm),
-            if (p.locked)
+            if (widget.readOnly)
+              const Text(
+                'To change this product, open it from Products.',
+                style: TextStyle(color: IanovaColors.muted, fontSize: 13),
+              )
+            else if (p.locked)
               const Text(
                 'This product is locked by the admin. Use Request review in Products.',
                 style: TextStyle(color: IanovaColors.muted, fontSize: 13),

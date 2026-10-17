@@ -13,11 +13,13 @@ class SellerHomeTab extends StatelessWidget {
     required this.dash,
     required this.onGo,
     required this.onRefresh,
+    this.onToggleAuto,
   });
 
   final PanelDashboard? dash;
   final void Function(int index, {String productFilter}) onGo;
   final Future<void> Function() onRefresh;
+  final Future<void> Function(bool on)? onToggleAuto;
 
   Widget _attention(String icon, String text, VoidCallback onTap) {
     return InkWell(
@@ -213,9 +215,16 @@ class SellerHomeTab extends StatelessWidget {
                     ],
                   ),
                 ),
-                OutlinedButton(
-                  onPressed: () => onGo(4),
-                  child: const Text('Change'),
+                FilledButton(
+                  onPressed: onToggleAuto == null
+                      ? () => onGo(4)
+                      : () => onToggleAuto!(!d.autoMine),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: IanovaColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: const StadiumBorder(),
+                  ),
+                  child: Text(d.autoMine ? 'Turn off' : 'Turn on'),
                 ),
               ],
             ),
@@ -235,9 +244,14 @@ class SellerHomeTab extends StatelessWidget {
                         ),
                       ),
                     ),
-                    TextButton(
+                    FilledButton(
                       onPressed: () => onGo(2),
-                      child: const Text('View all'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: IanovaColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: const StadiumBorder(),
+                      ),
+                      child: const Text('All orders'),
                     ),
                   ],
                 ),
@@ -306,7 +320,7 @@ class SellerHomeTab extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  r.customer,
+                                  '${r.customer} · ${r.createdAt}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
