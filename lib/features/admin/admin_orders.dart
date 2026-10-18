@@ -1,0 +1,684 @@
+import 'package:flutter/material.dart';
+
+import '../../core/format/money.dart';
+import 'admin_api.dart';
+import 'admin_products.dart';
+import 'admin_ui.dart';
+
+const List<String> _statuses = [
+  'pending',
+  'approved',
+  'paid',
+  'shipped',
+  'delivered',
+  'cancelled',
+];
+
+Map<String, String> get _statusOptions => {
+      for (final s in _statuses) s: '${s[0].toUpperCase()}${s.substring(1)}',
+    };
+
+/// Orders: IANOVA orders and seller orders in separate sections, like the website.
+class AdminOrdersScreen extends StatefulWidget {
+  const AdminOrdersScreen({
+    super.key,
+    this.initialTab = 'main',
+    this.initialStatus = '',
+    this.initialSeller = 0,
+  });
+
+  final String initialTab;
+  final String initialStatus;
+  final int initialSeller;
+
+  @override
+  State<AdminOrdersScreen> createState() => _AdminOrdersScreenState();
+}
+
+class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
+  final TextEditingController _search = TextEditingController();
+
+  late String _tab;
+  late String _status;
+  late int _seller;
+  Map<String, dynamic>? _data;
+  String? _error;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _tab = widget.initialTab == 'sellers' ? 'sellers' : 'main';
+    _status = widget.initialStatus;
+    _seller = _tab == 'sellers' ? widget.initialSeller : 0;
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await AdminApi.instance.panel(
+        'orders_list',
+        query: {
+          'tab': _tab,
+          'status': _status,
+          'seller': '$_seller',
+          'q': _search.text.trim(),
+        },
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _data = data;
+        _error = null;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _error = adminErr(error);
+        _loading = false;
+      });
+    }
+  }
+
+  void _reload({String? tab, String? status, int? seller}) {
+    setState(() {
+      if (tab != null) {
+        _tab = tab;
+        _seller = 0;
+      }
+      if (status != null) _status = status;
+      if (seller != null) _seller = seller;
+      _loading = true;
+    });
+    _load();
+  }
+
+  Future<void> _setStatus(int id, String status) async {
+    final ok = await adminTry(
+      context,
+      () => AdminApi.instance.setOrderStatus(id, status),
+    );
+
+    if (!mounted) return;
+
+    if (ok) adminSay(context, 'Order #$id is now $status.');
+    _load();
+  }
+
+  Future<void> _open(int id) async {
+    await adminPush(context, AdminOrderViewPage(id: id, tab: _tab));
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = _data;
+
+    if (_loading && data == null) return const AdminLoading();
+    if (data == null) return AdminLoading(error: _error, onRetry: _load);
+
+    final statusCounts = aMap(data['status_counts']);
+    var total = 0;
+    for (final s in _statuses) {
+      total += aInt(statusCounts[s]);
+    }
+
+    final chips = aList(data['seller_chips']);
+    final orders = aList(data['orders']);
+    final List<Widget> rows = _tab == 'main'
+        ? <Widget>[
+            for (final o in orders)
+              AdminCard(
+                child: _OrderBlock(
+                  order: o,
+                  lines: aList(o['lines']),
+                  approvals: const <Map<String, dynamic>>[],
+                  itemsLabel: 'IANOVA items',
+                  onOpen: () => _open(aInt(o['id'])),
+                  onStatus: (s) => _setStatus(aInt(o['id']), s),
+                ),
+              ),
+          ]
+        : _sellerGroups(orders);
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          AdminChipRow(
+            children: [
+              AdminChip(
+                label: '🏠 IANOVA orders',
+                count: aInt(data['n_main']),
+                selected: _tab == 'main',
+                onTap: () => _reload(tab: 'main'),
+              ),
+              AdminChip(
+                label: '🏪 Seller orders',
+                count: aInt(data['n_sellers']),
+                selected: _tab == 'sellers',
+                onTap: () => _reload(tab: 'sellers'),
+              ),
+            ],
+          ),
+          AdminMuted(
+            _tab == 'main'
+                ? 'Orders with products sold directly by IANOVA. You manage these yourself.'
+                : 'Orders with products sold by sellers. Each seller approves their own items; you see their status here.',
+          ),
+          const SizedBox(height: 10),
+          if (_tab == 'sellers')
+            AdminChipRow(
+              children: [
+                AdminChip(
+                  label: 'All sellers',
+                  count: chips.length,
+                  selected: _seller == 0,
+                  onTap: () => _reload(seller: 0),
+                ),
+                for (final s in chips)
+                  AdminChip(
+                    label: aInt(s['waiting']) > 0
+                        ? '🏪 ${aStr(s['name'])} · ${aInt(s['waiting'])} waiting'
+                        : '🏪 ${aStr(s['name'])}',
+                    count: aInt(s['orders']),
+                    selected: _seller == aInt(s['id']),
+                    onTap: () => _reload(seller: aInt(s['id'])),
+                  ),
+              ],
+            ),
+          AdminChipRow(
+            children: [
+              AdminChip(
+                label: 'All',
+                count: total,
+                selected: _status.isEmpty,
+                onTap: () => _reload(status: ''),
+              ),
+              for (final s in _statuses)
+                AdminChip(
+                  label: '${s[0].toUpperCase()}${s.substring(1)}',
+                  count: aInt(statusCounts[s]),
+                  selected: _status == s,
+                  onTap: () => _reload(status: s),
+                ),
+            ],
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _search,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _reload(),
+                  decoration: AdminField.decoration('Search order #, customer, phone, email...'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              AdminButton('Search', onPressed: () => _reload()),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (orders.isEmpty)
+            const AdminCard(child: AdminMuted('No orders in this section.')),
+          ...rows,
+          if (_loading) const LinearProgressIndicator(),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _sellerGroups(List<Map<String, dynamic>> orders) {
+    final groups = <int, Map<String, dynamic>>{};
+
+    for (final o in orders) {
+      final bySeller = <int, List<Map<String, dynamic>>>{};
+
+      for (final l in aList(o['lines'])) {
+        final sid = aInt(l['seller_id']);
+        if (sid > 0) bySeller.putIfAbsent(sid, () => <Map<String, dynamic>>[]).add(l);
+      }
+
+      for (final entry in bySeller.entries) {
+        final g = groups.putIfAbsent(
+          entry.key,
+          () => <String, dynamic>{
+            'name': aStr(entry.value.first['seller_name']),
+            'rows': <Map<String, dynamic>>[],
+          },
+        );
+
+        (g['rows'] as List<Map<String, dynamic>>).add({
+          'order': o,
+          'lines': entry.value,
+          'seller_id': entry.key,
+        });
+      }
+    }
+
+    final keys = groups.keys.toList()
+      ..sort((a, b) => aStr(groups[a]!['name'])
+          .toLowerCase()
+          .compareTo(aStr(groups[b]!['name']).toLowerCase()));
+
+    final widgets = <Widget>[];
+
+    for (final sid in keys) {
+      final g = groups[sid]!;
+      final rows = g['rows'] as List<Map<String, dynamic>>;
+      var waiting = 0;
+
+      for (final r in rows) {
+        for (final a in aList(aMap(r['order'])['approvals'])) {
+          if (aInt(a['seller_id']) == sid && !aBool(a['approved'])) waiting++;
+        }
+      }
+
+      widgets.add(
+        AdminCard(
+          accent: AC.gold,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '🏪 ${aStr(g['name'])} (${rows.length} order${rows.length == 1 ? '' : 's'})',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  if (waiting > 0)
+                    ATag('$waiting waiting for this seller', kind: 'wait')
+                  else
+                    const ATag('All approved', kind: 'ok'),
+                  const Spacer(),
+                  if (_seller != sid)
+                    AdminButton(
+                      'Only this seller',
+                      kind: 'gray',
+                      small: true,
+                      onPressed: () => _reload(seller: sid),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              for (final r in rows) ...[
+                const Divider(height: 22),
+                _OrderBlock(
+                  order: aMap(r['order']),
+                  lines: aList(r['lines']),
+                  approvals: aList(aMap(r['order'])['approvals'])
+                      .where((a) => aInt(a['seller_id']) == sid)
+                      .toList(),
+                  itemsLabel: 'Their items',
+                  onOpen: () => _open(aInt(aMap(r['order'])['id'])),
+                  onStatus: (s) => _setStatus(aInt(aMap(r['order'])['id']), s),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    return widgets;
+  }
+}
+
+class _OrderBlock extends StatelessWidget {
+  const _OrderBlock({
+    required this.order,
+    required this.lines,
+    required this.approvals,
+    required this.itemsLabel,
+    required this.onOpen,
+    required this.onStatus,
+  });
+
+  final Map<String, dynamic> order;
+  final List<Map<String, dynamic>> lines;
+  final List<Map<String, dynamic>> approvals;
+  final String itemsLabel;
+  final VoidCallback onOpen;
+  final ValueChanged<String> onStatus;
+
+  @override
+  Widget build(BuildContext context) {
+    var itemsTotal = 0.0;
+    for (final l in lines) {
+      itemsTotal += aNum(l['unit_price']) * aInt(l['quantity']);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: onOpen,
+                child: Text(
+                  '#${aInt(order['id'])}',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: AC.green,
+                  ),
+                ),
+              ),
+            ),
+            statusTag(aStr(order['status'])),
+          ],
+        ),
+        Text(
+          aStr(order['created_at']),
+          style: const TextStyle(color: AC.muted, fontSize: 12),
+        ),
+        const SizedBox(height: 6),
+        for (final l in lines.take(3))
+          AdminLineRow(
+            line: l,
+            showSeller: false,
+            onTap: aInt(l['product_id']) > 0
+                ? () => adminPush(context, AdminProductViewPage(id: aInt(l['product_id'])))
+                : onOpen,
+          ),
+        if (lines.length > 3)
+          TextButton(
+            onPressed: onOpen,
+            child: Text('+${lines.length - 3} more items'),
+          ),
+        const SizedBox(height: 6),
+        Text(aStr(order['customer']), style: const TextStyle(fontWeight: FontWeight.w900)),
+        if (aStr(order['phone']).isNotEmpty || aStr(order['address']).isNotEmpty)
+          Text(
+            '${aStr(order['phone'])}\n${aStr(order['address'])}'.trim(),
+            style: const TextStyle(color: AC.muted, fontSize: 13),
+          ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Text('$itemsLabel: ', style: const TextStyle(color: AC.muted, fontSize: 13)),
+            Text(formatKsh(itemsTotal), style: const TextStyle(fontWeight: FontWeight.w900)),
+            const Spacer(),
+            Text(
+              'Order total ${aMoney(order['total'])}',
+              style: const TextStyle(color: AC.muted, fontSize: 12.5),
+            ),
+          ],
+        ),
+        if (approvals.isNotEmpty)
+          Wrap(
+            children: [
+              for (final a in approvals)
+                ATag(
+                  '${aStr(a['name'])} · ${aBool(a['approved']) ? 'approved' : 'waiting'}',
+                  kind: aBool(a['approved']) ? 'ok' : 'wait',
+                ),
+            ],
+          ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _StatusSelect(
+                value: aStr(order['status']),
+                onChanged: onStatus,
+              ),
+            ),
+            const SizedBox(width: 8),
+            AdminButton('Open', kind: 'gray', onPressed: onOpen),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusSelect extends StatelessWidget {
+  const _StatusSelect({required this.value, required this.onChanged});
+
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final options = _statusOptions;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(9),
+      onTap: () async {
+        final picked = await showModalBottomSheet<String>(
+          context: context,
+          builder: (ctx) => SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('Change order status', style: TextStyle(fontWeight: FontWeight.w900)),
+                ),
+                for (final e in options.entries)
+                  ListTile(
+                    title: Text(e.value),
+                    trailing: e.key == value ? const Icon(Icons.check_rounded, color: AC.green) : null,
+                    onTap: () => Navigator.of(ctx).pop(e.key),
+                  ),
+              ],
+            ),
+          ),
+        );
+
+        if (picked != null && picked != value) onChanged(picked);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: AC.line2),
+        ),
+        child: Row(
+          children: [
+            Expanded(child: Text('Status: ${options[value] ?? value}')),
+            const Icon(Icons.expand_more_rounded, color: AC.muted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One order: customer, delivery, one panel for IANOVA and one per seller.
+class AdminOrderViewPage extends StatefulWidget {
+  const AdminOrderViewPage({super.key, required this.id, this.tab = 'main'});
+
+  final int id;
+  final String tab;
+
+  @override
+  State<AdminOrderViewPage> createState() => _AdminOrderViewPageState();
+}
+
+class _AdminOrderViewPageState extends State<AdminOrderViewPage> {
+  Map<String, dynamic>? _data;
+  String? _error;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await AdminApi.instance.panel(
+        'order_view',
+        query: {'id': '${widget.id}'},
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _data = data;
+        _error = null;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _error = adminErr(error);
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _setStatus(String status) async {
+    final ok = await adminTry(
+      context,
+      () => AdminApi.instance.setOrderStatus(widget.id, status),
+    );
+
+    if (!mounted) return;
+
+    if (ok) adminSay(context, 'Status updated.');
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = _data;
+    Widget body;
+
+    if (_loading) {
+      body = const AdminLoading();
+    } else if (data == null) {
+      body = AdminLoading(error: _error, onRetry: _load);
+    } else {
+      final o = aMap(data['order']);
+      final groups = aList(data['groups']);
+      final delivery = aNum(data['delivery']);
+
+      body = RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            AdminCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Order #${aInt(o['id'])} ',
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                      ),
+                      statusTag(aStr(o['status'])),
+                    ],
+                  ),
+                  AdminMuted(aStr(o['created_at'])),
+                  const SizedBox(height: 12),
+                  _StatusSelect(value: aStr(o['status']), onChanged: _setStatus),
+                  const SizedBox(height: 14),
+                  const Text('Customer', style: TextStyle(fontWeight: FontWeight.w900)),
+                  Text(aStr(o['customer'])),
+                  AdminMuted(aStr(o['email'])),
+                  const SizedBox(height: 10),
+                  const Text('Delivery', style: TextStyle(fontWeight: FontWeight.w900)),
+                  Text(aStr(o['phone'])),
+                  AdminMuted(aStr(o['address'])),
+                ],
+              ),
+            ),
+            for (final g in groups)
+              AdminCard(
+                accent: aBool(g['is_main']) ? AC.green : AC.gold,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${aBool(g['is_main']) ? '🏠' : '🏪'} ${aStr(g['name'])}',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (aBool(g['is_main']))
+                          const ATag('Managed by you')
+                        else
+                          ATag(
+                            aBool(g['approved']) ? 'approved' : 'waiting',
+                            kind: aBool(g['approved']) ? 'ok' : 'wait',
+                          ),
+                        const Spacer(),
+                        Text(aMoney(g['total']), style: const TextStyle(fontWeight: FontWeight.w900)),
+                      ],
+                    ),
+                    const Divider(height: 18),
+                    for (final l in aList(g['lines']))
+                      AdminLineRow(
+                        line: l,
+                        size: 56,
+                        onTap: aInt(l['product_id']) > 0
+                            ? () => adminPush(context, AdminProductViewPage(id: aInt(l['product_id'])))
+                            : null,
+                      ),
+                  ],
+                ),
+              ),
+            if (groups.isEmpty) const AdminCard(child: AdminMuted('This order has no items.')),
+            AdminCard(
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const AdminMuted('Items'),
+                      const Spacer(),
+                      Text(aMoney(data['subtotal'])),
+                    ],
+                  ),
+                  if (delivery.abs() > 0.004) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const AdminMuted('Delivery / other'),
+                        const Spacer(),
+                        Text(formatKsh(delivery)),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Text('Total', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+                      const Spacer(),
+                      Text(aMoney(o['total']), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return AdminSubPage(
+      title: widget.tab == 'sellers' ? 'Seller order' : 'IANOVA order',
+      child: body,
+    );
+  }
+}

@@ -7,11 +7,17 @@ import '../../core/config/api_config.dart';
 import '../../core/network/api_service.dart' show ApiException;
 
 /// Talks to the admin endpoints. Kept apart from the shopper API.
+///
+/// `admin.php` = login, store settings, alerts, seller chat.
+/// `admin_panel.php` = everything else the website admin can do.
 class AdminApi {
   AdminApi._();
 
   static final AdminApi instance = AdminApi._();
   static const _tokenKey = 'admin_token';
+
+  /// Set by the admin shell: called when the server says the session ended.
+  static void Function()? expiredHook;
 
   final http.Client _client = http.Client();
 
@@ -32,13 +38,39 @@ class AdminApi {
         .toList();
   }
 
+  Future<Map<String, dynamic>> _decode(http.Response response) async {
+    Map<String, dynamic> data;
+
+    try {
+      data = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+    } catch (_) {
+      throw const ApiException('Unexpected server response.');
+    }
+
+    if (data['success'] != true) {
+      if (response.statusCode == 401) {
+        await signOut();
+        final hook = expiredHook;
+        if (hook != null) hook();
+      }
+
+      throw ApiException(
+        data['error']?.toString() ?? 'Request failed.',
+        statusCode: response.statusCode,
+      );
+    }
+
+    return data;
+  }
+
   Future<Map<String, dynamic>> _call(
     String action, {
     Map<String, dynamic>? body,
     Map<String, String>? query,
     bool auth = true,
+    String file = 'admin.php',
   }) async {
-    final uri = Uri.parse('${IanovaApiConfig.baseUrl}/api/admin.php')
+    final uri = Uri.parse('${IanovaApiConfig.baseUrl}/api/$file')
         .replace(queryParameters: {'action': action, ...?query});
     final headers = <String, String>{'Content-Type': 'application/json'};
 
@@ -51,22 +83,7 @@ class AdminApi {
         ? await _client.get(uri, headers: headers)
         : await _client.post(uri, headers: headers, body: jsonEncode(body));
 
-    Map<String, dynamic> data;
-
-    try {
-      data = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
-    } catch (_) {
-      throw const ApiException('Unexpected server response.');
-    }
-
-    if (data['success'] != true) {
-      throw ApiException(
-        data['error']?.toString() ?? 'Request failed.',
-        statusCode: response.statusCode,
-      );
-    }
-
-    return data;
+    return _decode(response);
   }
 
   Future<void> login(String email, String password) async {
@@ -106,12 +123,48 @@ class AdminApi {
     await _call('store_set', body: values);
   }
 
-  /// Any admin action, for the alerts and sellers screens.
+  /// Any `admin.php` action, for alerts and seller chat.
   Future<Map<String, dynamic>> raw(
     String action, {
     Map<String, dynamic>? body,
     Map<String, String>? query,
   }) {
     return _call(action, body: body, query: query);
+  }
+
+  /// Any `admin_panel.php` action. Pass [body] to POST, otherwise it is a GET.
+  Future<Map<String, dynamic>> panel(
+    String action, {
+    Map<String, dynamic>? body,
+    Map<String, String>? query,
+  }) {
+    return _call(action, body: body, query: query, file: 'admin_panel.php');
+  }
+
+  /// A `admin_panel.php` POST with photos. [files] maps a form field to a file path.
+  Future<Map<String, dynamic>> panelUpload(
+    String action,
+    Map<String, String> fields,
+    Map<String, String> files,
+  ) async {
+    final uri = Uri.parse('${IanovaApiConfig.baseUrl}/api/admin_panel.php')
+        .replace(queryParameters: {'action': action});
+    final request = http.MultipartRequest('POST', uri);
+    final saved = await token();
+
+    if (saved != null) request.headers['Authorization'] = 'Bearer $saved';
+    request.headers['Accept'] = 'application/json';
+    request.fields.addAll(fields);
+
+    for (final entry in files.entries) {
+      request.files.add(
+        await http.MultipartFile.fromPath(entry.key, entry.value),
+      );
+    }
+
+    final streamed = await _client.send(request);
+    final response = await http.Response.fromStream(streamed);
+
+    return _decode(response);
   }
 }

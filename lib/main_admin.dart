@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'core/theme/ianova_theme.dart';
 import 'features/admin/admin_page.dart';
+import 'features/admin/admin_ui.dart';
 
 /// Entry point of the separate "IANOVA Admin" app. The shop app never includes this.
 void main() {
@@ -16,7 +16,7 @@ class IanovaAdminApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'IANOVA Admin',
-      theme: IanovaTheme.light(),
+      theme: adminTheme(),
       home: const AdminPage(),
     );
   }
