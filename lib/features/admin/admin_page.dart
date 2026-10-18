@@ -4,9 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../../core/config/api_config.dart';
 import '../../core/network/api_service.dart' show ApiException;
+import '../auth/forgot_password_page.dart';
 import 'admin_api.dart';
+import 'admin_broadcast.dart';
 import 'admin_catalog.dart';
 import 'admin_dashboard.dart';
+import 'admin_more.dart';
 import 'admin_orders.dart';
 import 'admin_products.dart';
 import 'admin_sellers.dart';
@@ -38,10 +41,13 @@ class _AdminPageState extends State<AdminPage> {
     _NavItem('orders', '🛒', 'Orders', 'pending_orders'),
     _NavItem('users', '👥', 'Users'),
     _NavItem('sellers', '🏪', 'Sellers', 'sellers'),
+    _NavItem('broadcast', '📢', 'Broadcast'),
     _NavItem('subscribers', '✉️', 'Subscribers'),
     _NavItem('suggestions', '💡', 'Suggestions', 'suggestions'),
     _NavItem('banners', '🖼️', 'Banners'),
+    _NavItem('video', '🎬', 'Video ad'),
     _NavItem('store', '🎛️', 'Store control'),
+    _NavItem('display', '🖥️', 'Display control'),
     _NavItem('flash', '⚡', 'Flash deals'),
     _NavItem('settings', '⚙️', 'Settings'),
     _NavItem('alerts', '🔔', 'Alerts', 'alerts'),
@@ -173,6 +179,10 @@ class _AdminPageState extends State<AdminPage> {
         return const AdminSuggestionsScreen();
       case 'banners':
         return const AdminBannersScreen();
+      case 'video':
+        return const AdminVideoAdScreen();
+      case 'display':
+        return const AdminDisplayScreen();
       case 'store':
         return const AdminStoreScreen();
       case 'flash':
@@ -267,7 +277,17 @@ class _AdminPageState extends State<AdminPage> {
                         badge: _badge(item.badge),
                         onTap: () {
                           Navigator.of(context).pop();
-                          _go(item.key);
+                          if (item.key == 'broadcast') {
+                            adminPush(
+                              context,
+                              AdminBroadcastPage(onExpired: () {
+                                final hook = AdminApi.expiredHook;
+                                if (hook != null) hook();
+                              }),
+                            );
+                          } else {
+                            _go(item.key);
+                          }
                         },
                       ),
                     const SizedBox(height: 6),
@@ -495,6 +515,20 @@ class _AdminLoginState extends State<_AdminLogin> {
                     obscureText: true,
                     decoration: AdminField.decoration(null),
                     onSubmitted: (_) => _submit(),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                                builder: (_) => ForgotPasswordPage(
+                                  kind: 'admin',
+                                  initialEmail: _email.text.trim(),
+                                ),
+                              )),
+                      child: const Text('Forgot password?'),
+                    ),
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 14),

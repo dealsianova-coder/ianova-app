@@ -91,6 +91,12 @@ Color aHex(String value, Color fallback) {
   return Color(text.length == 6 ? 0xFF000000 | parsed : parsed);
 }
 
+const Map<String, String> kShowOn = {
+  'both': 'Website and app',
+  'web': 'Website only',
+  'app': 'App only',
+};
+
 String adminErr(Object error) {
   if (error is ApiException) return error.message;
 

@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/config/api_config.dart';
 import 'admin_api.dart';
+import 'admin_bulk.dart';
 import 'admin_ui.dart';
 
 const Map<String, String> _statusLabels = {
@@ -163,6 +164,10 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
             runSpacing: 8,
             children: [
               AdminButton('+ Add product', onPressed: () => _edit(0)),
+              AdminButton('📤 Bulk upload', kind: 'gray', onPressed: () async {
+                await adminPush(context, const AdminBulkPage());
+                _load();
+              }),
               if (_category > 0)
                 AdminButton(
                   'Clear category filter',
@@ -587,6 +592,7 @@ class _AdminProductEditPageState extends State<AdminProductEditPage> {
   String _mainImage = '';
   String? _newMain;
   bool _flash = false;
+  String _showOn = 'both';
   bool _loading = true;
   bool _saving = false;
   String? _error;
@@ -650,6 +656,7 @@ class _AdminProductEditPageState extends State<AdminProductEditPage> {
           _bg.text = aStr(p['bg_color']);
           _desc.text = aStr(p['description']);
           _flash = aBool(p['is_flash_deal']);
+          _showOn = kShowOn.containsKey(aStr(p['show_on'])) ? aStr(p['show_on']) : 'both';
           _category = '${aInt(p['category_id'])}';
           _mainImage = aStr(p['image']);
           _gallery = aList(view['gallery']);
@@ -751,6 +758,7 @@ class _AdminProductEditPageState extends State<AdminProductEditPage> {
       'bg_color': _bg.text.trim(),
       'description': _desc.text.trim(),
       'is_flash_deal': _flash ? '1' : '0',
+      'show_on': _showOn,
       'del_img': _removeImages.join(','),
     };
     final files = <String, String>{};
@@ -1020,6 +1028,12 @@ class _AdminProductEditPageState extends State<AdminProductEditPage> {
                   onPressed: () => setState(() => _options.add(_ColorOption())),
                 ),
                 const SizedBox(height: 16),
+                AdminPicker(
+                  label: 'Show this product on',
+                  value: _showOn,
+                  options: kShowOn,
+                  onChanged: (v) => setState(() => _showOn = v),
+                ),
                 AdminSwitch(
                   label: 'Show as flash deal',
                   value: _flash,

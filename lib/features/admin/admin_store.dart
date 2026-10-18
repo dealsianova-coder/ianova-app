@@ -268,9 +268,11 @@ class AdminAlertsScreen extends StatefulWidget {
 
 class _AdminAlertsScreenState extends State<AdminAlertsScreen> with AdminLoad<AdminAlertsScreen> {
   Timer? _poll;
+  String _tab = 'main';
+  bool _autoBusy = false;
 
   @override
-  Future<Map<String, dynamic>> fetch() => AdminApi.instance.raw('alerts');
+  Future<Map<String, dynamic>> fetch() => AdminApi.instance.panel('alerts_tab', query: {'tab': _tab});
 
   @override
   void initState() {
@@ -285,15 +287,35 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> with AdminLoad<Ad
     super.dispose();
   }
 
+  void _notify() {
+    final cb = widget.onChanged;
+    if (cb != null) cb();
+  }
+
   Future<void> _read({int? id}) async {
     await adminTry(
       context,
-      () => AdminApi.instance.raw('alerts_read', body: id == null ? {'all': true} : {'id': id}),
+      () => AdminApi.instance.panel('alerts_tab_read', body: id == null ? {'tab': _tab} : {'tab': _tab, 'id': id}),
     );
     await load();
+    _notify();
+  }
 
-    final cb = widget.onChanged;
-    if (cb != null) cb();
+  Future<void> _auto(bool on) async {
+    setState(() => _autoBusy = true);
+    await adminTry(context, () => AdminApi.instance.panel('auto_master', body: {'on': on ? 1 : 0}));
+    if (!mounted) return;
+    setState(() => _autoBusy = false);
+    await load();
+  }
+
+  void _switchTab(String tab) {
+    setState(() {
+      _tab = tab;
+      loading = true;
+      data = null;
+    });
+    load();
   }
 
   Future<void> _open(Map<String, dynamic> a) async {
@@ -305,11 +327,13 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> with AdminLoad<Ad
     final sellerId = aInt(a['seller_id']);
 
     if (sellerId > 0) {
+      final name = aStr(a['seller_name']);
+
       await adminPush(
         context,
         AdminSellerThreadPage(
           sellerId: sellerId,
-          name: 'Seller',
+          name: name.isEmpty ? 'Seller' : name,
           onExpired: () {
             final hook = AdminApi.expiredHook;
             if (hook != null) hook();
@@ -324,12 +348,30 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> with AdminLoad<Ad
     return gate((d) {
       final items = aList(d['alerts']);
       final hasUnread = items.any((a) => a['read_at'] == null);
+      final auto = aBool(d['auto']);
 
       return RefreshIndicator(
         onRefresh: load,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            AdminChipRow(
+              children: [
+                AdminChip(label: 'IANOVA', selected: _tab == 'main', count: aInt(d['unread_main']), onTap: () => _switchTab('main')),
+                AdminChip(label: 'Sellers', selected: _tab == 'sellers', count: aInt(d['unread_sellers']), onTap: () => _switchTab('sellers')),
+              ],
+            ),
+            const SizedBox(height: 10),
+            AdminCard(
+              child: AdminSwitch(
+                label: 'Automatic approval (master switch)',
+                sub: auto
+                    ? 'ON: sellers and products that pass the checks are approved automatically.'
+                    : 'OFF: everything waits for you to approve it.',
+                value: auto,
+                onChanged: _autoBusy ? (_) {} : _auto,
+              ),
+            ),
             if (hasUnread)
               Align(
                 alignment: Alignment.centerLeft,
@@ -338,7 +380,7 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> with AdminLoad<Ad
             const SizedBox(height: 10),
             if (items.isEmpty)
               const AdminCard(
-                child: AdminMuted('Nothing yet. You will see seller review requests and order approvals here.'),
+                child: AdminMuted('Nothing yet. You will see review requests and order approvals here.'),
               ),
             for (final a in items)
               AdminCard(
@@ -347,6 +389,7 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> with AdminLoad<Ad
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (aStr(a['seller_name']).isNotEmpty) ATag(aStr(a['seller_name']), kind: 'wait'),
                     Text(aStr(a['title']), style: const TextStyle(fontWeight: FontWeight.w900)),
                     if (aStr(a['body']).isNotEmpty) AdminMuted(aStr(a['body'])),
                     const SizedBox(height: 4),

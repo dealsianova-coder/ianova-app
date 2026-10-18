@@ -19,6 +19,10 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> with Admi
   final TextEditingController _emoji = TextEditingController(text: '🛍️');
   final TextEditingController _sort = TextEditingController(text: '0');
   int _editId = 0;
+  String _showOn = 'both';
+  String _currentImage = '';
+  String? _newImage;
+  bool _removeImage = false;
   bool _saving = false;
 
   @override
@@ -46,7 +50,22 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> with Admi
       _slug.clear();
       _emoji.text = '🛍️';
       _sort.text = '0';
+      _showOn = 'both';
+      _currentImage = '';
+      _newImage = null;
+      _removeImage = false;
     });
+  }
+
+  Future<void> _pick() async {
+    final f = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 1200);
+
+    if (f != null) {
+      setState(() {
+        _newImage = f.path;
+        _removeImage = false;
+      });
+    }
   }
 
   Future<void> _save() async {
@@ -54,13 +73,19 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> with Admi
 
     final ok = await adminTry(
       context,
-      () => AdminApi.instance.panel('category_save', body: {
-        'id': _editId,
-        'name': _name.text.trim(),
-        'slug': _slug.text.trim(),
-        'emoji': _emoji.text.trim(),
-        'sort_order': int.tryParse(_sort.text.trim()) ?? 0,
-      }),
+      () => AdminApi.instance.panelUpload(
+        'category_save',
+        {
+          'id': '$_editId',
+          'name': _name.text.trim(),
+          'slug': _slug.text.trim(),
+          'emoji': _emoji.text.trim(),
+          'sort_order': _sort.text.trim(),
+          'show_on': _showOn,
+          'remove_image': _removeImage ? '1' : '0',
+        },
+        {if (_newImage != null) 'image': _newImage!},
+      ),
     );
 
     if (!mounted) return;
@@ -103,16 +128,36 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> with Admi
                   const SizedBox(height: 12),
                   AdminField(label: 'Name', controller: _name),
                   AdminField(label: 'Slug (made from the name if empty)', controller: _slug),
+                  const Text('Picture (replaces the emoji)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: AdminField(label: 'Emoji', controller: _emoji)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: AdminField(label: 'Sort order', controller: _sort, keyboard: TextInputType.number),
-                      ),
+                      if (_newImage != null)
+                        const ATag('New picture chosen', kind: 'ok')
+                      else if (_currentImage.isNotEmpty && !_removeImage)
+                        AdminThumb(image: _currentImage, size: 56),
+                      const SizedBox(width: 10),
+                      AdminButton('Choose picture', kind: 'gray', small: true, onPressed: _pick),
+                      if (_currentImage.isNotEmpty || _newImage != null) ...[
+                        const SizedBox(width: 8),
+                        AdminButton('Remove', kind: 'red', small: true, onPressed: () {
+                          setState(() {
+                            _newImage = null;
+                            _removeImage = true;
+                          });
+                        }),
+                      ],
                     ],
                   ),
+                  const SizedBox(height: 14),
+                  AdminField(label: 'Emoji (used only if there is no picture)', controller: _emoji),
+                  AdminPicker(
+                    label: 'Show this category on',
+                    value: _showOn,
+                    options: kShowOn,
+                    onChanged: (v) => setState(() => _showOn = v),
+                  ),
+                  AdminField(label: 'Sort order', controller: _sort, keyboard: TextInputType.number),
                   Row(
                     children: [
                       AdminButton('Save', busy: _saving, onPressed: _save),
@@ -131,9 +176,11 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> with Admi
                   children: [
                     Row(
                       children: [
+                        AdminThumb(image: aStr(c['image']), emoji: aStr(c['emoji']), size: 44),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            '${aStr(c['emoji'])} ${aStr(c['name'])}',
+                            aStr(c['name']),
                             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                           ),
                         ),
@@ -146,7 +193,7 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> with Admi
                         ),
                       ],
                     ),
-                    AdminMuted('${aInt(c['products'])} products'),
+                    AdminMuted('${aInt(c['products'])} products · ${kShowOn[aStr(c['show_on'])] ?? kShowOn['both']}'),
                     const SizedBox(height: 10),
                     Wrap(
                       spacing: 8,
@@ -159,6 +206,10 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> with Admi
                             _slug.text = aStr(c['slug']);
                             _emoji.text = aStr(c['emoji']);
                             _sort.text = aStr(c['sort_order']);
+                            _showOn = kShowOn.containsKey(aStr(c['show_on'])) ? aStr(c['show_on']) : 'both';
+                            _currentImage = aStr(c['image']);
+                            _newImage = null;
+                            _removeImage = false;
                           });
                         }),
                         AdminButton(
@@ -489,7 +540,7 @@ class _AdminBannersScreenState extends State<AdminBannersScreen> with AdminLoad<
                             children: [
                               Text(aStr(b['title']), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
                               AdminMuted(aStr(b['subtitle'])),
-                              AdminMuted('Order ${aInt(b['sort_order'])} · opens ${aStr(b['link_type'])}'),
+                              AdminMuted('Order ${aInt(b['sort_order'])} · opens ${aStr(b['link_type'])} · ${kShowOn[aStr(b['show_on'])] ?? kShowOn['both']}'),
                             ],
                           ),
                         ),
@@ -552,6 +603,7 @@ class _BannerEditPageState extends State<_BannerEditPage> {
   late String _product;
   late String _category;
   late bool _active;
+  late String _showOn;
   String? _image;
   bool _saving = false;
 
@@ -570,6 +622,7 @@ class _BannerEditPageState extends State<_BannerEditPage> {
     _product = _type == 'product' ? value : '0';
     _category = _type == 'category' ? value : '0';
     _active = widget.banner == null ? true : aBool(b['is_active']);
+    _showOn = kShowOn.containsKey(aStr(b['show_on'])) ? aStr(b['show_on']) : 'both';
   }
 
   @override
@@ -611,6 +664,7 @@ class _BannerEditPageState extends State<_BannerEditPage> {
           'link_value': value,
           'sort_order': _sort.text.trim(),
           'is_active': _active ? '1' : '0',
+          'show_on': _showOn,
         },
         {if (_image != null) 'image': _image!},
       ),
@@ -690,6 +744,12 @@ class _BannerEditPageState extends State<_BannerEditPage> {
                   ),
                 if (_type == 'search') AdminField(label: 'Search words', controller: _search, maxLength: 200),
                 AdminField(label: 'Order (smallest first)', controller: _sort, keyboard: TextInputType.number),
+                AdminPicker(
+                  label: 'Show this banner on',
+                  value: _showOn,
+                  options: kShowOn,
+                  onChanged: (v) => setState(() => _showOn = v),
+                ),
                 AdminSwitch(label: 'Show this banner', value: _active, onChanged: (v) => setState(() => _active = v)),
                 const SizedBox(height: 8),
                 AdminButton('Save banner', busy: _saving, onPressed: _save),
