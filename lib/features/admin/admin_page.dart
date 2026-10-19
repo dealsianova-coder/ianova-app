@@ -44,6 +44,7 @@ class _AdminPageState extends State<AdminPage> {
     _NavItem('broadcast', '📢', 'Broadcast'),
     _NavItem('subscribers', '✉️', 'Subscribers'),
     _NavItem('suggestions', '💡', 'Suggestions', 'suggestions'),
+    _NavItem('email', '📧', 'Email alerts'),
     _NavItem('banners', '🖼️', 'Banners'),
     _NavItem('video', '🎬', 'Video ad'),
     _NavItem('store', '🎛️', 'Store control'),
@@ -179,6 +180,8 @@ class _AdminPageState extends State<AdminPage> {
         return const AdminSuggestionsScreen();
       case 'banners':
         return const AdminBannersScreen();
+      case 'email':
+        return const AdminEmailScreen();
       case 'video':
         return const AdminVideoAdScreen();
       case 'display':

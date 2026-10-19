@@ -418,3 +418,196 @@ class _AdminDisplayScreenState extends State<AdminDisplayScreen> with AdminLoad<
     return ListView(padding: const EdgeInsets.all(16), children: children);
   }
 }
+
+// ------------------------------------------------------------------ email alerts
+
+class AdminEmailScreen extends StatefulWidget {
+  const AdminEmailScreen({super.key});
+
+  @override
+  State<AdminEmailScreen> createState() => _AdminEmailScreenState();
+}
+
+class _AdminEmailScreenState extends State<AdminEmailScreen> with AdminLoad<AdminEmailScreen> {
+  final TextEditingController _to = TextEditingController();
+  final TextEditingController _subject = TextEditingController();
+  final TextEditingController _body = TextEditingController();
+  final Map<String, bool> _flags = <String, bool>{};
+  bool _busy = false;
+
+  static const _labels = <String, String>{
+    'on': 'Email alerts on (master switch)',
+    'admin': 'Admin: new orders, new sellers, products waiting for review',
+    'seller': 'Sellers: new orders for their products, cancelled orders, product approved or rejected',
+    'customer': 'Customers: order confirmation and status updates',
+    'subs': 'Subscribers: welcome email for new subscribers',
+  };
+
+  @override
+  Future<Map<String, dynamic>> fetch() async {
+    final d = await AdminApi.instance.panel('mail_get');
+    final f = aMap(d['flags']);
+
+    for (final k in _labels.keys) {
+      _flags[k] = aBool(f[k]);
+    }
+
+    _to.text = aStr(d['admin_to']);
+
+    return d;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
+
+  @override
+  void dispose() {
+    _to.dispose();
+    _subject.dispose();
+    _body.dispose();
+    super.dispose();
+  }
+
+  Future<void> _run(Future<Map<String, dynamic>> Function() call, {String? fallback}) async {
+    setState(() => _busy = true);
+
+    String message = fallback ?? 'Done.';
+
+    final ok = await adminTry(context, () async {
+      final r = await call();
+      if (aStr(r['message']).isNotEmpty) message = aStr(r['message']);
+    });
+
+    if (!mounted) return;
+
+    setState(() => _busy = false);
+
+    if (ok) {
+      adminSay(context, message);
+      load();
+    }
+  }
+
+  Future<void> _save() => _run(
+        () => AdminApi.instance.panel('mail_save', body: {
+          for (final e in _flags.entries) e.key: e.value ? 1 : 0,
+          'admin_to': _to.text.trim(),
+        }),
+        fallback: 'Saved.',
+      );
+
+  Future<void> _newsletter(bool test) async {
+    if (!test) {
+      final yes = await adminConfirm(context, 'Send this newsletter to all subscribers?');
+      if (!yes) return;
+    }
+
+    await _run(() => AdminApi.instance.panel('mail_newsletter', body: {
+          'subject': _subject.text.trim(),
+          'body': _body.text.trim(),
+          'test': test ? 1 : 0,
+        }));
+  }
+
+  String _state(Map<String, dynamic> r) {
+    if (aStr(r['sent_at']).isNotEmpty) return 'Sent';
+    if (aInt(r['tries']) >= 3) return 'Failed: ${aStr(r['last_error'])}';
+
+    return 'Waiting';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return gate((d) {
+      final stats = aMap(d['stats']);
+      final ready = aBool(stats['smtp_ready']);
+      final recent = aList(d['recent']);
+      final subs = aInt(d['subscribers']);
+      final subsLabel = 'Send a newsletter ($subs ${subs == 1 ? "subscriber" : "subscribers"})';
+      final toLabel = 'Admin email address (empty = ${aStr(d["default_to"])})';
+
+      return RefreshIndicator(
+        onRefresh: load,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            if (!ready)
+              const AdminCard(
+                color: Color(0xFFFDEAEA),
+                child: Text('Email sending is not set up: SMTP_PASS is empty in config.local.php, so emails wait in the queue.'),
+              ),
+            AdminCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Who gets emails', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 8),
+                  for (final e in _labels.entries)
+                    AdminSwitch(
+                      label: e.value,
+                      value: _flags[e.key] ?? true,
+                      onChanged: (v) => setState(() => _flags[e.key] = v),
+                    ),
+                  const SizedBox(height: 8),
+                  AdminField(
+                    label: toLabel,
+                    controller: _to,
+                    keyboard: TextInputType.emailAddress,
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      AdminButton('Save', busy: _busy, onPressed: _save),
+                      AdminButton('Send me a test email', kind: 'gray', onPressed: _busy ? null : () => _run(() => AdminApi.instance.panel('mail_test', body: {}))),
+                      AdminButton('Send waiting emails now', kind: 'gray', onPressed: _busy ? null : () => _run(() => AdminApi.instance.panel('mail_flush', body: {}), fallback: 'Done.')),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  AdminMuted('Queue: ${aInt(stats['queued'])} waiting, ${aInt(stats['sent'])} sent, ${aInt(stats['failed'])} failed.'),
+                ],
+              ),
+            ),
+            AdminCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(subsLabel, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 10),
+                  AdminField(label: 'Subject', controller: _subject),
+                  AdminField(label: 'Message', controller: _body, maxLines: 7, hint: 'Leave an empty line to start a new paragraph.'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      AdminButton('Send test to me', kind: 'gray', onPressed: _busy ? null : () => _newsletter(true)),
+                      AdminButton('Send to all subscribers', kind: 'gold', onPressed: _busy ? null : () => _newsletter(false)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const AdminHeading('Latest emails'),
+            if (recent.isEmpty) const AdminCard(child: AdminMuted('No emails yet.')),
+            for (final r in recent)
+              AdminCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(aStr(r['subject']), style: const TextStyle(fontWeight: FontWeight.w800)),
+                    AdminMuted('${aStr(r['to_email'])} · ${aStr(r['audience'])}'),
+                    const SizedBox(height: 4),
+                    ATag(_state(r), kind: aStr(r['sent_at']).isNotEmpty ? 'ok' : 'wait'),
+                    AdminMuted(aStr(r['created_at'])),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+    });
+  }
+}
