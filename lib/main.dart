@@ -90,8 +90,19 @@ class _IanovaShellState extends State<IanovaShell> {
     }
   }
 
+  // ianova-backnav
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: _currentIndex == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) setState(() => _currentIndex = 0);
+      },
+      child: _buildShell(context),
+    );
+  }
+
+  Widget _buildShell(BuildContext context) {
     final pages = [
       HomePage(
         onProductTap: _openProduct,

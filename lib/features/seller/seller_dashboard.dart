@@ -191,8 +191,19 @@ class _SellerDashboardState extends State<SellerDashboard> {
     );
   }
 
+  // ianova-backnav
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: _index == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _go(0);
+      },
+      child: _buildPanel(context),
+    );
+  }
+
+  Widget _buildPanel(BuildContext context) {
     final d = _dash;
     final status = d?.status.isNotEmpty == true ? d!.status : widget.session.status;
 

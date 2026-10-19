@@ -198,6 +198,16 @@ class _AdminPageState extends State<AdminPage> {
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: _signedIn != true || _page == 'dashboard',
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _go('dashboard');
+      },
+      child: _buildPage(context),
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
     final signedIn = _signedIn;
 
     if (signedIn == null) {
