@@ -239,7 +239,9 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> with Admi
 // ------------------------------------------------------------------ users
 
 class AdminUsersScreen extends StatefulWidget {
-  const AdminUsersScreen({super.key, this.onGo});
+  const AdminUsersScreen({super.key, this.onGo, this.initialRole = 'all'});
+
+  final String initialRole;
 
   /// Opens another admin section (used by "Open in Sellers").
   final void Function(String page)? onGo;
@@ -258,6 +260,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<Admi
   @override
   void initState() {
     super.initState();
+    _role = widget.initialRole;
     load();
   }
 

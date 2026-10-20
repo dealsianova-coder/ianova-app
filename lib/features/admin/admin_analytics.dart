@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import 'admin_api.dart';
+import 'admin_orders.dart';
+import 'admin_products.dart';
 import 'admin_ui.dart';
 
 const Map<String, Color> _statusColors = <String, Color>{
@@ -14,6 +16,8 @@ const Map<String, Color> _statusColors = <String, Color>{
   'delivered': Color(0xFF1D6B52),
   'cancelled': Color(0xFFB83B3B),
 };
+
+const List<Color> _topColors = <Color>[Color(0xFFE0742A), Color(0xFFE9B949), Color(0xFF1D6B52), Color(0xFF2F6FDE), Color(0xFF7C6FD0)];
 
 Color _statusColor(String s) => _statusColors[s] ?? AC.gray;
 
@@ -31,7 +35,7 @@ String _k(double v) {
 class AdminAnalyticsScreen extends StatefulWidget {
   const AdminAnalyticsScreen({super.key, this.onGo});
 
-  final void Function(String page)? onGo;
+  final void Function(String page, [Map<String, String> args])? onGo;
 
   @override
   State<AdminAnalyticsScreen> createState() => _AdminAnalyticsScreenState();
@@ -39,6 +43,19 @@ class AdminAnalyticsScreen extends StatefulWidget {
 
 class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> with AdminLoad<AdminAnalyticsScreen> {
   int _months = 6;
+  int _sel = -1;
+
+  void _go(String page, [Map<String, String>? args]) {
+    final f = widget.onGo;
+
+    if (f == null) return;
+
+    if (args == null) {
+      f(page);
+    } else {
+      f(page, args);
+    }
+  }
 
   @override
   Future<Map<String, dynamic>> fetch() => AdminApi.instance.panel('analytics', query: {'months': '$_months'});
@@ -68,9 +85,11 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> with AdminL
     return Text('▼ ${v.abs()}%', style: const TextStyle(color: AC.red, fontWeight: FontWeight.w800, fontSize: 12));
   }
 
-  Widget _stat(String icon, Color bg, String label, String value, Widget sub) {
+  Widget _stat(String icon, Color bg, Color fg, String label, String value, Widget sub, VoidCallback onTap) {
     return Expanded(
       child: AdminCard(
+        accent: fg,
+        onTap: onTap,
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -93,7 +112,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> with AdminL
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+              child: Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: fg)),
             ),
             const SizedBox(height: 4),
             sub,
@@ -126,20 +145,21 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> with AdminL
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _stat('💰', AC.okBg, 'Total revenue', aMoney(rev['value']), Row(children: [_trend(rev['trend']), const SizedBox(width: 6), const Text('30 days', style: TextStyle(color: AC.muted, fontSize: 11))])),
+                _stat('💰', const Color(0xFFE1F3E8), const Color(0xFF1D6B52), 'Total revenue', aMoney(rev['value']), Row(children: [_trend(rev['trend']), const SizedBox(width: 6), const Text('30 days', style: TextStyle(color: AC.muted, fontSize: 11))]), () => _go('orders')),
                 const SizedBox(width: 12),
-                _stat('🛒', const Color(0xFFE3ECFB), 'Total orders', '${aInt(ord['value'])}', Row(children: [_trend(ord['trend']), const SizedBox(width: 6), const Text('30 days', style: TextStyle(color: AC.muted, fontSize: 11))])),
+                _stat('🛒', const Color(0xFFE3ECFB), const Color(0xFF2F6FDE), 'Total orders', '${aInt(ord['value'])}', Row(children: [_trend(ord['trend']), const SizedBox(width: 6), const Text('30 days', style: TextStyle(color: AC.muted, fontSize: 11))]), () => _go('orders')),
               ],
             ),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _stat('👥', const Color(0xFFEFE9FB), 'Total customers', '${aInt(cus['value'])}', Row(children: [_trend(cus['trend']), const SizedBox(width: 6), const Text('30 days', style: TextStyle(color: AC.muted, fontSize: 11))])),
+                _stat('👥', const Color(0xFFEFE9FB), const Color(0xFF7C6FD0), 'Total customers', '${aInt(cus['value'])}', Row(children: [_trend(cus['trend']), const SizedBox(width: 6), const Text('30 days', style: TextStyle(color: AC.muted, fontSize: 11))]), () => _go('users', {'role': 'customer'})),
                 const SizedBox(width: 12),
-                _stat('📦', const Color(0xFFFDEAEA), 'Total products', '${aInt(prod['value'])}', Text('${aInt(prod['review'])} waiting for review', style: const TextStyle(color: AC.muted, fontSize: 11))),
+                _stat('📦', const Color(0xFFFDEBDD), const Color(0xFFE0742A), 'Total products', '${aInt(prod['value'])}', Text('${aInt(prod['review'])} waiting for review', style: const TextStyle(color: AC.muted, fontSize: 11)), () => _go('products')),
               ],
             ),
             AdminCard(
+              accent: const Color(0xFF1D6B52),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -152,20 +172,53 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> with AdminL
                     ],
                   ),
                   const SizedBox(height: 12),
-                  SizedBox(
-                    height: 210,
-                    width: double.infinity,
-                    child: CustomPaint(
-                      painter: _SalesPainter(
-                        [for (final s in sales) aNum(s['value']).toDouble()],
-                        [for (final s in sales) aStr(s['label'])],
+                  LayoutBuilder(
+                    builder: (ctx, box) {
+                      final vals = [for (final s in sales) aNum(s['value']).toDouble()];
+
+                      return GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTapDown: (t) {
+                          if (vals.isEmpty) return;
+
+                          final w = box.maxWidth - 48.0;
+                          final x = (t.localPosition.dx - 38.0).clamp(0.0, w);
+                          final i = vals.length > 1 ? (x / w * (vals.length - 1)).round() : 0;
+
+                          setState(() => _sel = i);
+                        },
+                        child: SizedBox(
+                          height: 210,
+                          width: double.infinity,
+                          child: CustomPaint(
+                            painter: _SalesPainter(vals, [for (final s in sales) aStr(s['label'])], _sel),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  if (_sel >= 0 && _sel < sales.length)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: InkWell(
+                        onTap: () => _go('orders'),
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(color: const Color(0xFFE1F3E8), borderRadius: BorderRadius.circular(10)),
+                          child: Text(
+                            '${aStr(sales[_sel]['label'])}: ${aMoney(sales[_sel]['value'])}  ·  open orders ›',
+                            style: const TextStyle(color: Color(0xFF1D6B52), fontWeight: FontWeight.w800),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
             AdminCard(
+              accent: const Color(0xFF7C6FD0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -173,7 +226,41 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> with AdminL
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      SizedBox(
+                      GestureDetector(
+                        onTapUp: (t) {
+                          final c = const Offset(70, 70);
+                          final v = t.localPosition - c;
+                          final dist = v.distance;
+
+                          if (dist < 34 || dist > 72) {
+                            _go('orders');
+                            return;
+                          }
+
+                          double a = math.atan2(v.dy, v.dx) + math.pi / 2;
+
+                          if (a < 0) a += math.pi * 2;
+
+                          int total = 0;
+
+                          for (final s in status) {
+                            total += aInt(s['count']);
+                          }
+
+                          if (total <= 0) return;
+
+                          double acc = 0;
+
+                          for (final s in status) {
+                            acc += math.pi * 2 * aInt(s['count']) / total;
+
+                            if (a <= acc) {
+                              _go('orders', {'status': aStr(s['status'])});
+                              return;
+                            }
+                          }
+                        },
+                        child: SizedBox(
                         width: 140,
                         height: 140,
                         child: CustomPaint(
@@ -191,21 +278,26 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> with AdminL
                             ),
                           ),
                         ),
+                        ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Column(
                           children: [
                             for (final s in status)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
-                                child: Row(
-                                  children: [
-                                    Container(width: 10, height: 10, decoration: BoxDecoration(color: _statusColor(aStr(s['status'])), shape: BoxShape.circle)),
-                                    const SizedBox(width: 8),
-                                    Expanded(child: Text(_cap(aStr(s['status'])))),
-                                    Text('${aStr(s['percent'])}%', style: const TextStyle(fontWeight: FontWeight.w800)),
-                                  ],
+                              InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: () => _go('orders', {'status': aStr(s['status'])}),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                                  child: Row(
+                                    children: [
+                                      Container(width: 10, height: 10, decoration: BoxDecoration(color: _statusColor(aStr(s['status'])), shape: BoxShape.circle)),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: Text(_cap(aStr(s['status'])))),
+                                      Text('${aInt(s['count'])} · ${aStr(s['percent'])}%', style: const TextStyle(fontWeight: FontWeight.w800)),
+                                    ],
+                                  ),
                                 ),
                               ),
                           ],
@@ -217,6 +309,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> with AdminL
               ),
             ),
             AdminCard(
+              accent: const Color(0xFF2F6FDE),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -229,7 +322,10 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> with AdminL
                   const SizedBox(height: 8),
                   if (recent.isEmpty) const AdminMuted('No orders yet.'),
                   for (final o in recent)
-                    Padding(
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => adminPush(context, AdminOrderViewPage(id: aInt(o['id']))),
+                      child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,20 +344,26 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> with AdminL
                             children: [
                               Text(aMoney(o['total']), style: const TextStyle(fontWeight: FontWeight.w800)),
                               const SizedBox(height: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                                decoration: BoxDecoration(color: _statusColor(aStr(o['status'])), borderRadius: BorderRadius.circular(99)),
-                                child: Text(_cap(aStr(o['status'])), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+                              InkWell(
+                                borderRadius: BorderRadius.circular(99),
+                                onTap: () => _go('orders', {'status': aStr(o['status'])}),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                                  decoration: BoxDecoration(color: _statusColor(aStr(o['status'])), borderRadius: BorderRadius.circular(99)),
+                                  child: Text(_cap(aStr(o['status'])), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+                                ),
                               ),
                             ],
                           ),
                         ],
+                      ),
                       ),
                     ),
                 ],
               ),
             ),
             AdminCard(
+              accent: const Color(0xFFE0742A),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -273,29 +375,37 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> with AdminL
                   ),
                   const SizedBox(height: 10),
                   if (top.isEmpty) const AdminMuted('No sales yet.'),
-                  for (final t in top)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
+                  for (int ti = 0; ti < top.length; ti++)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () {
+                        final pid = aInt(top[ti]['id']);
+
+                        if (pid > 0) adminPush(context, AdminProductViewPage(id: pid));
+                      },
+                      child: Padding(
+                      padding: const EdgeInsets.only(bottom: 10, top: 4),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              Expanded(child: Text(aStr(t['name']), style: const TextStyle(fontWeight: FontWeight.w800))),
-                              Text('${aInt(t['sold'])} sold', style: const TextStyle(color: AC.muted, fontSize: 12)),
+                              Expanded(child: Text(aStr(top[ti]['name']), style: const TextStyle(fontWeight: FontWeight.w800))),
+                              Text('${aInt(top[ti]['sold'])} sold', style: const TextStyle(color: AC.muted, fontSize: 12)),
                             ],
                           ),
                           const SizedBox(height: 5),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(99),
                             child: LinearProgressIndicator(
-                              value: aInt(t['sold']) / topMax,
+                              value: aInt(top[ti]['sold']) / topMax,
                               minHeight: 8,
                               backgroundColor: const Color(0xFFE8EEEA),
-                              valueColor: const AlwaysStoppedAnimation<Color>(AC.green),
+                              valueColor: AlwaysStoppedAnimation<Color>(_topColors[ti % 5]),
                             ),
                           ),
                         ],
+                      ),
                       ),
                     ),
                 ],
@@ -309,10 +419,11 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> with AdminL
 }
 
 class _SalesPainter extends CustomPainter {
-  _SalesPainter(this.values, this.labels);
+  _SalesPainter(this.values, this.labels, this.sel);
 
   final List<double> values;
   final List<String> labels;
+  final int sel;
 
   void _text(Canvas canvas, String s, Offset at, {bool right = false, bool center = false}) {
     final tp = TextPainter(
@@ -417,7 +528,8 @@ class _SalesPainter extends CustomPainter {
     for (int i = 0; i < n; i++) {
       final c = Offset(px(i), py(values[i]));
 
-      canvas.drawCircle(c, 4.5, Paint()..color = Colors.white);
+      if (i == sel) canvas.drawCircle(c, 9, Paint()..color = const Color(0x331D6B52));
+      canvas.drawCircle(c, i == sel ? 6 : 4.5, Paint()..color = Colors.white);
       canvas.drawCircle(
         c,
         4.5,

@@ -173,7 +173,7 @@ class _AdminPageState extends State<AdminPage> {
           initialSeller: aInt(_args['seller']),
         );
       case 'users':
-        return AdminUsersScreen(onGo: _go);
+        return AdminUsersScreen(onGo: _go, initialRole: _args['role'] ?? 'all');
       case 'sellers':
         return const AdminSellersScreen();
       case 'subscribers':
