@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/config/api_config.dart';
 import '../../core/network/api_service.dart' show ApiException;
 import '../auth/forgot_password_page.dart';
+import 'admin_analytics.dart';
 import 'admin_api.dart';
 import 'admin_broadcast.dart';
 import 'admin_catalog.dart';
@@ -36,6 +37,7 @@ class _NavItem {
 class _AdminPageState extends State<AdminPage> {
   static const _items = <_NavItem>[
     _NavItem('dashboard', '📊', 'Dashboard'),
+    _NavItem('analytics', '📈', 'Analytics'),
     _NavItem('products', '📦', 'Products', 'review_products'),
     _NavItem('categories', '🏷️', 'Categories'),
     _NavItem('orders', '🛒', 'Orders', 'pending_orders'),
@@ -171,7 +173,7 @@ class _AdminPageState extends State<AdminPage> {
           initialSeller: aInt(_args['seller']),
         );
       case 'users':
-        return const AdminUsersScreen();
+        return AdminUsersScreen(onGo: _go);
       case 'sellers':
         return const AdminSellersScreen();
       case 'subscribers':
@@ -180,6 +182,8 @@ class _AdminPageState extends State<AdminPage> {
         return const AdminSuggestionsScreen();
       case 'banners':
         return const AdminBannersScreen();
+      case 'analytics':
+        return AdminAnalyticsScreen(onGo: _go);
       case 'email':
         return const AdminEmailScreen();
       case 'video':

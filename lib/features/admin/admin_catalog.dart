@@ -239,13 +239,19 @@ class _AdminCategoriesScreenState extends State<AdminCategoriesScreen> with Admi
 // ------------------------------------------------------------------ users
 
 class AdminUsersScreen extends StatefulWidget {
-  const AdminUsersScreen({super.key});
+  const AdminUsersScreen({super.key, this.onGo});
+
+  /// Opens another admin section (used by "Open in Sellers").
+  final void Function(String page)? onGo;
 
   @override
   State<AdminUsersScreen> createState() => _AdminUsersScreenState();
 }
 
 class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<AdminUsersScreen> {
+  final TextEditingController _search = TextEditingController();
+  String _role = 'all';
+
   @override
   Future<Map<String, dynamic>> fetch() => AdminApi.instance.panel('users_list');
 
@@ -255,14 +261,32 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<Admi
     load();
   }
 
-  Future<void> _edit(Map<String, dynamic> u) async {
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  bool _hit(List<String> values) {
+    final q = _search.text.trim().toLowerCase();
+
+    if (q.isEmpty) return true;
+
+    for (final v in values) {
+      if (v.toLowerCase().contains(q)) return true;
+    }
+
+    return false;
+  }
+
+  Future<bool> _editDialog(String title, Map<String, dynamic> u, String action) async {
     final name = TextEditingController(text: aStr(u['name']));
     final email = TextEditingController(text: aStr(u['email']));
 
     final save = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Edit user'),
+        title: Text(title),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -282,14 +306,20 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<Admi
     name.dispose();
     email.dispose();
 
-    if (save != true || !mounted) return;
+    if (save != true || !mounted) return false;
 
-    final ok = await adminTry(
+    return adminTry(
       context,
-      () => AdminApi.instance.panel('user_save', body: {'id': aInt(u['id']), 'name': newName, 'email': newEmail}),
+      () => AdminApi.instance.panel(action, body: {'id': aInt(u['id']), 'name': newName, 'email': newEmail}),
     );
+  }
 
-    if (ok) load();
+  Future<void> _editUser(Map<String, dynamic> u) async {
+    if (await _editDialog('Edit customer', u, 'user_save')) load();
+  }
+
+  Future<void> _editAdmin(Map<String, dynamic> a) async {
+    if (await _editDialog('Edit admin', a, 'admin_account_save')) load();
   }
 
   Future<void> _delete(Map<String, dynamic> u) async {
@@ -300,38 +330,145 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<Admi
     load();
   }
 
+  Widget _section(String icon, String title, String note, ATag tag) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('$icon $title', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+              const SizedBox(width: 10),
+              tag,
+            ],
+          ),
+          if (note.isNotEmpty) AdminMuted(note),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return gate((d) {
-      final users = aList(d['users']);
+      final me = aInt(d['me']);
+      final admins = aList(d['admins']).where((r) => _hit([aStr(r['name']), aStr(r['email'])])).toList();
+      final sellers = aList(d['sellers']).where((r) => _hit([aStr(r['business_name']), aStr(r['email'])])).toList();
+      final users = aList(d['users']).where((r) => _hit([aStr(r['name']), aStr(r['email'])])).toList();
+      final total = admins.length + sellers.length + users.length;
+
+      final children = <Widget>[
+        TextField(
+          controller: _search,
+          textInputAction: TextInputAction.search,
+          onChanged: (_) => setState(() {}),
+          decoration: AdminField.decoration('Search name or email'),
+        ),
+        const SizedBox(height: 10),
+        AdminChipRow(
+          children: [
+            AdminChip(label: 'All', selected: _role == 'all', count: total, onTap: () => setState(() => _role = 'all')),
+            AdminChip(label: '👑 Admin', selected: _role == 'admin', count: admins.length, onTap: () => setState(() => _role = 'admin')),
+            AdminChip(label: '🏪 Sellers', selected: _role == 'seller', count: sellers.length, onTap: () => setState(() => _role = 'seller')),
+            AdminChip(label: '🛍️ Customers', selected: _role == 'customer', count: users.length, onTap: () => setState(() => _role = 'customer')),
+          ],
+        ),
+        const SizedBox(height: 14),
+      ];
+
+      if (_role == 'all' || _role == 'admin') {
+        children.add(_section('👑', 'Admin', 'The store owner accounts. Only these can sign in to the admin and the Admin app.', const ATag('FULL CONTROL', kind: 'wait')));
+
+        for (final a in admins) {
+          children.add(
+            AdminCard(
+              accent: AC.goldLight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: Text(aStr(a['name']), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900))),
+                      if (aInt(a['id']) == me) const ATag('YOU', kind: 'ok'),
+                    ],
+                  ),
+                  Text(aStr(a['email'])),
+                  AdminMuted('Last sign-in: ${aStr(a['last_login']).isEmpty ? 'never' : aStr(a['last_login'])}'),
+                  const SizedBox(height: 10),
+                  AdminButton('Edit', small: true, onPressed: () => _editAdmin(a)),
+                ],
+              ),
+            ),
+          );
+        }
+
+        if (admins.isEmpty) children.add(const AdminCard(child: AdminMuted('No admin accounts found.')));
+      }
+
+      if (_role == 'all' || _role == 'seller') {
+        children.add(_section('🏪', 'Sellers', '', const ATag('SELLER', kind: 'ok')));
+
+        for (final s in sellers) {
+          children.add(
+            AdminCard(
+              accent: AC.green,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: Text(aStr(s['business_name']), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900))),
+                      ATag(aStr(s['status']), kind: aStr(s['status']) == 'approved' ? 'ok' : 'wait'),
+                    ],
+                  ),
+                  Text(aStr(s['email'])),
+                  AdminMuted('${aInt(s['products'])} products · joined ${aStr(s['created_at'])}'),
+                  if (widget.onGo != null) ...[
+                    const SizedBox(height: 10),
+                    AdminButton('Open in Sellers', small: true, kind: 'gray', onPressed: () => widget.onGo!('sellers')),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }
+
+        if (sellers.isEmpty) children.add(const AdminCard(child: AdminMuted('No sellers.')));
+      }
+
+      if (_role == 'all' || _role == 'customer') {
+        children.add(_section('🛍️', 'Customers', '', const ATag('CUSTOMER')));
+
+        for (final u in users) {
+          children.add(
+            AdminCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(aStr(u['name']), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                  Text(aStr(u['email'])),
+                  AdminMuted('${aInt(u['orders'])} orders · joined ${aStr(u['created_at'])}'),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      AdminButton('Edit', small: true, onPressed: () => _editUser(u)),
+                      AdminButton('Delete', small: true, kind: 'red', onPressed: () => _delete(u)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        if (users.isEmpty) children.add(const AdminCard(child: AdminMuted('No customers.')));
+      }
 
       return RefreshIndicator(
         onRefresh: load,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (users.isEmpty) const AdminCard(child: AdminMuted('No users yet.')),
-            for (final u in users)
-              AdminCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(aStr(u['name']), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-                    Text(aStr(u['email'])),
-                    AdminMuted('${aInt(u['orders'])} orders · joined ${aStr(u['created_at'])}'),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        AdminButton('Edit', small: true, onPressed: () => _edit(u)),
-                        AdminButton('Delete', small: true, kind: 'red', onPressed: () => _delete(u)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
+        child: ListView(padding: const EdgeInsets.all(16), children: children),
       );
     });
   }
