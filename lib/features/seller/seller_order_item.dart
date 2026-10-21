@@ -13,13 +13,13 @@ class SellerOrderItemPage extends StatelessWidget {
     super.key,
     required this.order,
     required this.item,
-    required this.onViewProduct,
+    this.onViewProduct,
     this.onApprove,
   });
 
   final PanelOrder order;
   final PanelLine item;
-  final VoidCallback onViewProduct;
+  final VoidCallback? onViewProduct; // kept for compatibility; not shown, orders are not a place to edit products
   final Future<void> Function()? onApprove;
 
   Widget _row(String label, String value) {
@@ -101,12 +101,6 @@ class SellerOrderItemPage extends StatelessWidget {
           else if (order.approved)
             const Text('You approved this order.', style: TextStyle(color: IanovaColors.secondary)),
           const SizedBox(height: 10),
-          OutlinedButton(
-            onPressed: onViewProduct,
-            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-            child: const Text('View product'),
-          ),
-          const SizedBox(height: 8),
           OutlinedButton(
             onPressed: () => Navigator.of(context).pop(),
             style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),

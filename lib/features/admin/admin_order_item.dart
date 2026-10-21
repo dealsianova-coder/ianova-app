@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/format/money.dart';
-import 'admin_products.dart';
 import 'admin_ui.dart';
 
 /// One item of an order: what was bought, how many, for whom, and who sells it.
@@ -33,7 +32,6 @@ class AdminOrderItemPage extends StatelessWidget {
     final price = aNum(line['unit_price']);
     final isMain = aBool(group['is_main']);
     final approved = aBool(group['approved']);
-    final pid = aInt(line['product_id']);
 
     return AdminSubPage(
       title: 'Order item',
@@ -105,8 +103,6 @@ class AdminOrderItemPage extends StatelessWidget {
             ),
           ),
           AdminButton('Back to order', kind: 'gray', onPressed: () => Navigator.of(context).pop()),
-          const SizedBox(height: 10),
-          if (pid > 0) AdminButton('View product', kind: 'gray', onPressed: () => adminPush(context, AdminProductViewPage(id: pid))),
         ],
       ),
     );
