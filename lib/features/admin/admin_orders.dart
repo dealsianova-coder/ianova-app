@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/format/money.dart';
 import 'admin_api.dart';
+import 'admin_order_item.dart';
 import 'admin_products.dart';
 import 'admin_ui.dart';
 
@@ -389,9 +390,7 @@ class _OrderBlock extends StatelessWidget {
           AdminLineRow(
             line: l,
             showSeller: false,
-            onTap: aInt(l['product_id']) > 0
-                ? () => adminPush(context, AdminProductViewPage(id: aInt(l['product_id'])))
-                : onOpen,
+            onTap: onOpen,
           ),
         if (lines.length > 3)
           TextButton(
@@ -632,9 +631,7 @@ class _AdminOrderViewPageState extends State<AdminOrderViewPage> {
                       AdminLineRow(
                         line: l,
                         size: 56,
-                        onTap: aInt(l['product_id']) > 0
-                            ? () => adminPush(context, AdminProductViewPage(id: aInt(l['product_id'])))
-                            : null,
+                        onTap: () => adminPush(context, AdminOrderItemPage(order: o, group: g, line: l)),
                       ),
                   ],
                 ),

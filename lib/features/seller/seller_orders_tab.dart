@@ -5,6 +5,7 @@ import '../../core/theme/ianova_theme.dart';
 import 'seller_models.dart';
 import 'seller_panel_ui.dart';
 import 'seller_open_product.dart';
+import 'seller_order_item.dart';
 import 'seller_service.dart';
 import 'seller_ui.dart';
 
@@ -143,15 +144,22 @@ class _SellerOrdersTabState extends State<SellerOrdersTab> {
           for (final it in o.items)
             InkWell(
               borderRadius: BorderRadius.circular(16),
-              onTap: () => openSellerProduct(
-                context: context,
-                session: widget.session,
-                service: widget.service,
-                onExpired: widget.onExpired,
-                name: it.name,
-                option: it.option,
-                onChanged: widget.onChanged,
-              ),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => SellerOrderItemPage(
+                  order: o,
+                  item: it,
+                  onApprove: o.canApprove && !o.approved ? () => _approve(o) : null,
+                  onViewProduct: () => openSellerProduct(
+                    context: context,
+                    session: widget.session,
+                    service: widget.service,
+                    onExpired: widget.onExpired,
+                    name: it.name,
+                    option: it.option,
+                    onChanged: widget.onChanged,
+                  ),
+                ),
+              )),
               child: Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(10),
