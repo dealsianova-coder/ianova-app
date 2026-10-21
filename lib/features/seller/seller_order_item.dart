@@ -89,7 +89,7 @@ class SellerOrderItemPage extends StatelessWidget {
               ],
             ),
           ),
-          if (!order.approved && order.canApprove && onApprove != null)
+          if (!order.approved && order.canApprove && order.status != 'cancelled' && onApprove != null)
             FilledButton(
               onPressed: () async {
                 await onApprove!();
@@ -98,6 +98,8 @@ class SellerOrderItemPage extends StatelessWidget {
               style: FilledButton.styleFrom(backgroundColor: IanovaColors.primary, minimumSize: const Size.fromHeight(50)),
               child: const Text('Approve order'),
             )
+          else if (order.status == 'cancelled')
+            const Text('Cancelled by the customer. Nothing to approve.', style: TextStyle(color: IanovaColors.secondary))
           else if (order.approved)
             const Text('You approved this order.', style: TextStyle(color: IanovaColors.secondary)),
           const SizedBox(height: 10),

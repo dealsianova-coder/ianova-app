@@ -456,7 +456,9 @@ class _StatusSelect extends StatelessWidget {
 
     return InkWell(
       borderRadius: BorderRadius.circular(9),
-      onTap: () async {
+      onTap: value == 'cancelled'
+          ? null
+          : () async {
         final picked = await showModalBottomSheet<String>(
           context: context,
           builder: (ctx) => SafeArea(
@@ -489,7 +491,7 @@ class _StatusSelect extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Expanded(child: Text('Status: ${options[value] ?? value}')),
+            Expanded(child: Text(value == 'cancelled' ? '🔒 Cancelled · locked' : 'Status: ${options[value] ?? value}')),
             const Icon(Icons.expand_more_rounded, color: AC.muted),
           ],
         ),

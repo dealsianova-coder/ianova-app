@@ -212,7 +212,12 @@ class _SellerOrdersTabState extends State<SellerOrdersTab> {
             ),
           ),
           const SizedBox(height: 10),
-          if (o.approved)
+          if (o.status == 'cancelled' && !o.approved)
+            const Text(
+              'Cancelled by the customer. Nothing to approve.',
+              style: TextStyle(color: IanovaColors.secondary),
+            )
+          else if (o.approved)
             const Text(
               'You approved this order.',
               style: TextStyle(color: IanovaColors.secondary),
