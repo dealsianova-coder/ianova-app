@@ -9,6 +9,7 @@ import 'admin_analytics.dart';
 import 'admin_api.dart';
 import 'admin_broadcast.dart';
 import 'admin_catalog.dart';
+import 'admin_team.dart';
 import 'admin_dashboard.dart';
 import 'admin_more.dart';
 import 'admin_orders.dart';
@@ -42,6 +43,7 @@ class _AdminPageState extends State<AdminPage> {
     _NavItem('categories', '🏷️', 'Categories'),
     _NavItem('orders', '🛒', 'Orders', 'pending_orders'),
     _NavItem('users', '👥', 'Users'),
+    _NavItem('admins', '🛡️', 'Admin team'),
     _NavItem('sellers', '🏪', 'Sellers', 'sellers'),
     _NavItem('broadcast', '📢', 'Broadcast'),
     _NavItem('subscribers', '✉️', 'Subscribers'),
@@ -62,6 +64,9 @@ class _AdminPageState extends State<AdminPage> {
   int _stamp = 0;
   Map<String, int> _counts = <String, int>{};
   Timer? _poll;
+  List<String>? _allowed;
+
+  bool _can(String key) => key == 'admins' || _allowed == null || _allowed!.contains(key);
 
   @override
   void initState() {
@@ -107,6 +112,19 @@ class _AdminPageState extends State<AdminPage> {
       if (!mounted) return;
 
       setState(() {
+        final al = data['allowed'];
+
+        if (al is List) _allowed = [for (final e in al) '$e'];
+
+        if (!_can(_page)) {
+          for (final it in _items) {
+            if (_can(it.key)) {
+              _page = it.key;
+              break;
+            }
+          }
+        }
+
         _counts = {
           'alerts': aInt(data['alerts']),
           'messages': aInt(data['messages']),
@@ -127,6 +145,7 @@ class _AdminPageState extends State<AdminPage> {
 
     setState(() {
       _signedIn = false;
+      _allowed = null;
       _page = 'dashboard';
       _args = <String, String>{};
     });
@@ -158,6 +177,26 @@ class _AdminPageState extends State<AdminPage> {
   }
 
   Widget _body() {
+    if (!_can(_page)) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('🔒', style: TextStyle(fontSize: 42)),
+              const SizedBox(height: 10),
+              const Text('No access to this section', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 6),
+              const AdminMuted('Ask the master admin if you need it.'),
+              const SizedBox(height: 14),
+              AdminButton('Open Admin team', small: true, onPressed: () => _go('admins')),
+            ],
+          ),
+        ),
+      );
+    }
+
     switch (_page) {
       case 'products':
         return AdminProductsScreen(
@@ -174,6 +213,8 @@ class _AdminPageState extends State<AdminPage> {
         );
       case 'users':
         return AdminUsersScreen(onGo: _go, initialRole: _args['role'] ?? 'all');
+      case 'admins':
+        return const AdminTeamScreen();
       case 'sellers':
         return const AdminSellersScreen();
       case 'subscribers':
@@ -288,6 +329,7 @@ class _AdminPageState extends State<AdminPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   children: [
                     for (final item in _items)
+                      if (_can(item.key))
                       _DrawerRow(
                         item: item,
                         selected: item.key == _page,

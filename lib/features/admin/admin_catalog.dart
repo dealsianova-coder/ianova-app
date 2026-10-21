@@ -260,7 +260,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<Admi
   @override
   void initState() {
     super.initState();
-    _role = widget.initialRole;
+    _role = widget.initialRole == 'admin' ? 'all' : widget.initialRole;
     load();
   }
 
@@ -321,199 +321,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<Admi
     if (await _editDialog('Edit customer', u, 'user_save')) load();
   }
 
-  /// Small dialog asking for one or more secret fields. Returns the values, or null if cancelled.
-  Future<List<String>?> _askSecrets(String title, String note, List<String> labels, {List<String> texts = const [], List<bool> secret = const []}) async {
-    final ctrls = [for (int i = 0; i < labels.length; i++) TextEditingController(text: i < texts.length ? texts[i] : '')];
-
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (note.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 12), child: AdminMuted(note)),
-              for (int i = 0; i < labels.length; i++)
-                AdminField(
-                  label: labels[i],
-                  controller: ctrls[i],
-                  obscure: i < secret.length ? secret[i] : true,
-                  keyboard: (i < secret.length && !secret[i] && labels[i].toLowerCase().contains('email')) ? TextInputType.emailAddress : null,
-                ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Confirm')),
-        ],
-      ),
-    );
-
-    final vals = [for (final c in ctrls) c.text];
-
-    for (final c in ctrls) {
-      c.dispose();
-    }
-
-    if (ok != true || !mounted) return null;
-
-    return vals;
-  }
-
-  Future<void> _editAdmin(Map<String, dynamic> a) async {
-    final v = await _askSecrets(
-      'Edit my account',
-      'Protected by your security password.',
-      ['Name', 'Email', 'New sign-in password (optional)', '🔒 Security password'],
-      texts: [aStr(a['name']), aStr(a['email'])],
-      secret: [false, false, true, true],
-    );
-
-    if (v == null || !mounted) return;
-
-    final ok = await adminTry(
-      context,
-      () => AdminApi.instance.panel('admin_account_save', body: {
-        'id': aInt(a['id']),
-        'name': v[0].trim(),
-        'email': v[1].trim(),
-        'new_password': v[2],
-        'security_password': v[3],
-      }),
-    );
-
-    if (ok) load();
-  }
-
-  Future<void> _setSecurity(bool has) async {
-    final v = await _askSecrets(
-      has ? 'Change security password' : 'Set security password',
-      'A second password, different from your sign-in password. It protects editing your account and adding or approving admins.',
-      [has ? 'Current security password' : 'Your sign-in password (to confirm it is you)', 'New security password (8+ characters)'],
-    );
-
-    if (v == null || !mounted) return;
-
-    final ok = await adminTry(context, () => AdminApi.instance.panel('team_set_security', body: {'proof': v[0], 'new': v[1]}));
-
-    if (ok) {
-      adminSay(context, 'Security password saved.');
-      load();
-    }
-  }
-
-  Future<void> _addAdmin() async {
-    final v = await _askSecrets(
-      'Add admin',
-      'The new admin is created as pending and cannot sign in until you approve them.',
-      ['Full name', 'Email', 'Sign-in password for the new admin (8+)', '🔒 Your security password'],
-      secret: [false, false, true, true],
-    );
-
-    if (v == null || !mounted) return;
-
-    final ok = await adminTry(
-      context,
-      () => AdminApi.instance.panel('team_add', body: {'name': v[0].trim(), 'email': v[1].trim(), 'password': v[2], 'security_password': v[3]}),
-    );
-
-    if (ok) {
-      adminSay(context, 'Admin added. Approve them to let them sign in.');
-      load();
-    }
-  }
-
-  Future<void> _teamDo(Map<String, dynamic> a, String act, String label) async {
-    final v = await _askSecrets('$label ${aStr(a['name'])}?', 'Enter your security password to confirm.', ['🔒 Security password']);
-
-    if (v == null || !mounted) return;
-
-    final ok = await adminTry(context, () => AdminApi.instance.panel('team_do', body: {'id': aInt(a['id']), 'do': act, 'security_password': v[0]}));
-
-    if (ok) load();
-  }
-
-  Widget _adminCard(Map<String, dynamic> a, int me, bool iAmMaster, bool hasSec) {
-    final isMaster = aInt(a['is_master']) == 1;
-    final mine = aInt(a['id']) == me;
-    final st = aStr(a['status']).isEmpty ? 'active' : aStr(a['status']);
-    final name = aStr(a['name']);
-    final fg = isMaster ? Colors.white : AC.ink;
-    final sub = isMaster ? const Color(0xCCFFFFFF) : AC.muted;
-
-    final badges = <Widget>[
-      if (isMaster) const ATag('👑 MASTER ADMIN', kind: 'wait'),
-      if (!isMaster && st == 'pending') const ATag('PENDING APPROVAL', kind: 'wait'),
-      if (!isMaster && st == 'suspended') const ATag('SUSPENDED', kind: 'na'),
-      if (!isMaster && st == 'active') const ATag('ACTIVE', kind: 'ok'),
-      if (mine) const ATag('YOU', kind: 'ok'),
-    ];
-
-    final actions = <Widget>[];
-
-    if (mine) {
-      actions.add(AdminButton(hasSec ? '🔒 Edit my account' : '🔒 Set security password first', small: true, kind: isMaster ? 'gray' : 'green', onPressed: () => hasSec ? _editAdmin(a) : _setSecurity(false)));
-    } else if (iAmMaster && !isMaster) {
-      if (st == 'pending') {
-        actions.add(AdminButton('✅ Approve', small: true, onPressed: () => _teamDo(a, 'approve', 'Approve')));
-        actions.add(AdminButton('Reject', small: true, kind: 'red', onPressed: () => _teamDo(a, 'reject', 'Reject')));
-      } else if (st == 'suspended') {
-        actions.add(AdminButton('Restore', small: true, onPressed: () => _teamDo(a, 'restore', 'Restore')));
-        actions.add(AdminButton('Remove', small: true, kind: 'red', onPressed: () => _teamDo(a, 'remove', 'Remove')));
-      } else {
-        actions.add(AdminButton('Suspend', small: true, kind: 'gray', onPressed: () => _teamDo(a, 'suspend', 'Suspend')));
-        actions.add(AdminButton('Remove', small: true, kind: 'red', onPressed: () => _teamDo(a, 'remove', 'Remove')));
-      }
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: isMaster ? const LinearGradient(colors: [Color(0xFF17352C), Color(0xFF1D6B52)], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
-        color: isMaster ? null : Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: isMaster ? const Color(0xFF17352C) : const Color(0xFFE3EBE6)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: isMaster ? AC.goldLight : const Color(0xFFE9F1EC), borderRadius: BorderRadius.circular(14)),
-                child: Text(name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(), style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: isMaster ? AC.side : AC.green)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(name, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: fg)),
-                    Text(aStr(a['email']), style: TextStyle(color: sub, fontSize: 13)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(spacing: 6, runSpacing: 6, children: badges),
-          const SizedBox(height: 8),
-          Text('Last sign-in: ${aStr(a['last_login']).isEmpty ? 'never' : aStr(a['last_login'])}', style: TextStyle(color: sub, fontSize: 12)),
-          if (!mine && !(iAmMaster && !isMaster)) Padding(padding: const EdgeInsets.only(top: 8), child: Text('🔒 Protected: only this admin can edit this account.', style: TextStyle(color: sub, fontSize: 12))),
-          if (actions.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 12), child: Wrap(spacing: 8, runSpacing: 8, children: actions)),
-        ],
-      ),
-    );
-  }
-
   Future<void> _delete(Map<String, dynamic> u) async {
     if (!await adminConfirm(context, 'Delete ${aStr(u['name'])}?')) return;
     if (!mounted) return;
@@ -544,13 +351,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<Admi
   @override
   Widget build(BuildContext context) {
     return gate((d) {
-      final me = aInt(d['me']);
-      final iAmMaster = aBool(d['master']);
-      final hasSec = aBool(d['has_security']);
-      final admins = aList(d['admins']).where((r) => _hit([aStr(r['name']), aStr(r['email'])])).toList();
       final sellers = aList(d['sellers']).where((r) => _hit([aStr(r['business_name']), aStr(r['email'])])).toList();
       final users = aList(d['users']).where((r) => _hit([aStr(r['name']), aStr(r['email'])])).toList();
-      final total = admins.length + sellers.length + users.length;
+      final total = sellers.length + users.length;
 
       final children = <Widget>[
         TextField(
@@ -563,7 +366,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<Admi
         AdminChipRow(
           children: [
             AdminChip(label: 'All', selected: _role == 'all', count: total, onTap: () => setState(() => _role = 'all')),
-            AdminChip(label: '👑 Admin', selected: _role == 'admin', count: admins.length, onTap: () => setState(() => _role = 'admin')),
             AdminChip(label: '🏪 Sellers', selected: _role == 'seller', count: sellers.length, onTap: () => setState(() => _role = 'seller')),
             AdminChip(label: '🛍️ Customers', selected: _role == 'customer', count: users.length, onTap: () => setState(() => _role = 'customer')),
           ],
@@ -571,37 +373,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<Admi
         const SizedBox(height: 14),
       ];
 
-      if (_role == 'all' || _role == 'admin') {
-        children.add(_section('👑', 'Admin', 'The master admin can add more admins. New admins need your approval before they can sign in.', const ATag('FULL CONTROL', kind: 'wait')));
-
-        for (final a in admins) {
-          children.add(_adminCard(a, me, iAmMaster, hasSec));
-        }
-
-        children.add(
-          AdminCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('🔒 Security password', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 4),
-                const AdminMuted('A second password, different from your sign-in password. It protects editing your account and adding or approving admins.'),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    AdminButton(hasSec ? 'Change security password' : 'Set security password', small: true, onPressed: () => _setSecurity(hasSec)),
-                    if (iAmMaster) AdminButton('➕ Add admin', small: true, kind: 'gray', onPressed: () => hasSec ? _addAdmin() : _setSecurity(false)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-
-        if (admins.isEmpty) children.add(const AdminCard(child: AdminMuted('No admin accounts found.')));
-      }
+      children.insert(
+        2,
+        InkWell(
+          onTap: () => widget.onGo?.call('admins'),
+          child: const Padding(padding: EdgeInsets.only(bottom: 10), child: AdminMuted('Sellers and customers only. Admin accounts are in 🛡️ Admin team ›')),
+        ),
+      );
 
       if (_role == 'all' || _role == 'seller') {
         children.add(_section('🏪', 'Sellers', '', const ATag('SELLER', kind: 'ok')));
