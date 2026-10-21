@@ -322,7 +322,51 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<Admi
   }
 
   Future<void> _editAdmin(Map<String, dynamic> a) async {
-    if (await _editDialog('Edit admin', a, 'admin_account_save')) load();
+    final name = TextEditingController(text: aStr(a['name']));
+    final email = TextEditingController(text: aStr(a['email']));
+    final newPw = TextEditingController();
+    final curPw = TextEditingController();
+
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit admin'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AdminField(label: 'Name', controller: name),
+              AdminField(label: 'Email', controller: email, keyboard: TextInputType.emailAddress),
+              AdminField(label: 'New password (optional)', controller: newPw, obscure: true),
+              AdminField(label: '🔒 Current password (required)', controller: curPw, obscure: true),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Save')),
+        ],
+      ),
+    );
+
+    final body = <String, dynamic>{
+      'id': aInt(a['id']),
+      'name': name.text.trim(),
+      'email': email.text.trim(),
+      'new_password': newPw.text,
+      'current_password': curPw.text,
+    };
+
+    name.dispose();
+    email.dispose();
+    newPw.dispose();
+    curPw.dispose();
+
+    if (save != true || !mounted) return;
+
+    final ok = await adminTry(context, () => AdminApi.instance.panel('admin_account_save', body: body));
+
+    if (ok) load();
   }
 
   Future<void> _delete(Map<String, dynamic> u) async {
@@ -399,7 +443,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<Admi
                   Text(aStr(a['email'])),
                   AdminMuted('Last sign-in: ${aStr(a['last_login']).isEmpty ? 'never' : aStr(a['last_login'])}'),
                   const SizedBox(height: 10),
-                  AdminButton('Edit', small: true, onPressed: () => _editAdmin(a)),
+                  if (aInt(a['id']) == me)
+                    AdminButton('🔒 Edit (needs password)', small: true, onPressed: () => _editAdmin(a))
+                  else
+                    const AdminMuted('🔒 Protected: only this admin can edit this account.'),
                 ],
               ),
             ),

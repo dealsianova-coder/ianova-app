@@ -356,8 +356,10 @@ class AdminField extends StatelessWidget {
     this.hint,
     this.maxLength,
     this.onChanged,
+    this.obscure = false,
   });
 
+  final bool obscure;
   final String label;
   final TextEditingController controller;
   final TextInputType? keyboard;
@@ -410,6 +412,7 @@ class AdminField extends StatelessWidget {
           TextField(
             controller: controller,
             keyboardType: keyboard,
+            obscureText: obscure,
             maxLines: maxLines,
             maxLength: maxLength,
             onChanged: onChanged,
