@@ -531,6 +531,15 @@ class _AdminOrderViewPageState extends State<AdminOrderViewPage> {
 
       if (!mounted) return;
 
+      if (!_trackFilled) {
+        final t = aMap(data['tracking']);
+
+        _courier.text = aStr(t['courier']);
+        _trackNo.text = aStr(t['number']);
+        _trackNote.text = aStr(t['note']);
+        _trackFilled = true;
+      }
+
       setState(() {
         _data = data;
         _error = null;
@@ -559,11 +568,80 @@ class _AdminOrderViewPageState extends State<AdminOrderViewPage> {
   }
 
   final TextEditingController _note = TextEditingController();
+  final TextEditingController _courier = TextEditingController();
+  final TextEditingController _trackNo = TextEditingController();
+  final TextEditingController _trackNote = TextEditingController();
+  bool _trackFilled = false;
 
   @override
   void dispose() {
     _note.dispose();
+    _courier.dispose();
+    _trackNo.dispose();
+    _trackNote.dispose();
     super.dispose();
+  }
+
+  Future<void> _saveTracking() async {
+    final ok = await adminTry(
+      context,
+      () => AdminApi.instance.panel('order_tracking_save', body: {'id': widget.id, 'courier': _courier.text.trim(), 'number': _trackNo.text.trim(), 'note': _trackNote.text.trim()}),
+    );
+
+    if (!mounted) return;
+
+    if (ok) {
+      adminSay(context, 'Saved. The customer was emailed.');
+      _load();
+    }
+  }
+
+  Future<void> _refund(double left) async {
+    final amount = TextEditingController();
+    final method = TextEditingController();
+    final reason = TextEditingController();
+
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Record refund', style: TextStyle(fontWeight: FontWeight.w900)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AdminMuted('Records a refund you paid out yourself and emails the customer. Up to ${aMoney(left)} left.'),
+              const SizedBox(height: 12),
+              AdminField(label: 'Amount', controller: amount, keyboard: const TextInputType.numberWithOptions(decimal: true)),
+              AdminField(label: 'Method (M-Pesa, bank, cash)', controller: method),
+              AdminField(label: 'Reason', controller: reason),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Record refund')),
+        ],
+      ),
+    );
+
+    final body = {'id': widget.id, 'amount': amount.text.trim(), 'method': method.text.trim(), 'reason': reason.text.trim()};
+
+    amount.dispose();
+    method.dispose();
+    reason.dispose();
+
+    if (go != true || !mounted) return;
+
+    final ok = await adminTry(context, () => AdminApi.instance.panel('order_refund_add', body: body));
+
+    if (!mounted) return;
+
+    if (ok) {
+      adminSay(context, 'Refund recorded.');
+      _load();
+    }
   }
 
   Future<void> _addNote() async {
@@ -665,6 +743,43 @@ class _AdminOrderViewPageState extends State<AdminOrderViewPage> {
                 ),
               ),
             if (groups.isEmpty) const AdminCard(child: AdminMuted('This order has no items.')),
+            AdminCard(
+              accent: const Color(0xFF17A2A2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('🚚 Delivery tracking', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 10),
+                  AdminField(label: 'Courier', controller: _courier),
+                  AdminField(label: 'Tracking number', controller: _trackNo),
+                  AdminField(label: 'Note (optional)', controller: _trackNote),
+                  AdminButton('Save and email customer', small: true, onPressed: _saveTracking),
+                ],
+              ),
+            ),
+            AdminCard(
+              accent: AC.red,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('↩️ Refunds${aNum(data['refunded']) > 0 ? ' (${aMoney(data['refunded'])})' : ''}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 8),
+                  for (final r in aList(data['refunds']))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${aMoney(r['amount'])} ${aStr(r['method'])}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                          AdminMuted('${aStr(r['reason'])} · ${aStr(r['admin_name'])} · ${aStr(r['created_at'])}'),
+                        ],
+                      ),
+                    ),
+                  if (aStr(o['status']) != 'pending') AdminButton('Record refund', small: true, kind: 'red', onPressed: () => _refund(aNum(o['total']) - aNum(data['refunded']))),
+                  if (aStr(o['status']) == 'pending') const AdminMuted('Nothing was paid yet: this order is still pending.'),
+                ],
+              ),
+            ),
             AdminCard(
               accent: const Color(0xFF7C6FD0),
               child: Column(

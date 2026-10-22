@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/format/money.dart';
+import 'admin_api.dart';
 import 'admin_ui.dart';
 
 /// One item of an order: what was bought, how many, for whom, and who sells it.
@@ -23,6 +24,23 @@ class AdminOrderItemPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _cancelItem(BuildContext context) async {
+    if (!await adminConfirm(context, 'Cancel ${aStr(line['name'])} from order #${aInt(order['id'])}?')) return;
+    if (!context.mounted) return;
+
+    final ok = await adminTry(
+      context,
+      () => AdminApi.instance.panel('order_item_cancel', body: {'id': aInt(order['id']), 'product_id': aInt(line['product_id'])}),
+    );
+
+    if (!context.mounted) return;
+
+    if (ok) {
+      adminSay(context, 'Item cancelled.');
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -102,6 +120,19 @@ class AdminOrderItemPage extends StatelessWidget {
               ],
             ),
           ),
+          if (const ['pending', 'approved', 'paid'].contains(aStr(order['status'])))
+            AdminCard(
+              accent: AC.red,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Cancel this item', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                  const AdminMuted('Removes only this item, puts its stock back, works out the new total and emails the customer.'),
+                  const SizedBox(height: 10),
+                  AdminButton('Cancel item', small: true, kind: 'red', onPressed: () => _cancelItem(context)),
+                ],
+              ),
+            ),
           AdminButton('Back to order', kind: 'gray', onPressed: () => Navigator.of(context).pop()),
         ],
       ),

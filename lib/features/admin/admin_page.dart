@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config/api_config.dart';
 import '../../core/network/api_service.dart' show ApiException;
@@ -356,6 +357,15 @@ class _AdminPageState extends State<AdminPage> {
                         },
                       ),
                     const SizedBox(height: 6),
+                    _DrawerRow(
+                      item: const _NavItem('viewstore', '🌐', 'View store'),
+                      selected: false,
+                      badge: 0,
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        launchUrl(Uri.parse(IanovaApiConfig.baseUrl), mode: LaunchMode.externalApplication);
+                      },
+                    ),
                     _DrawerRow(
                       item: const _NavItem('logout', '🚪', 'Logout'),
                       selected: false,
