@@ -165,6 +165,15 @@ class _AdminTeamScreenState extends State<AdminTeamScreen> with AdminLoad<AdminT
     if (ok) load();
   }
 
+  Future<void> _forgotSecurity() async {
+    if (!await adminConfirm(context, 'Email yourself a link to set a new security password?')) return;
+    if (!mounted) return;
+
+    final ok = await adminTry(context, () => AdminApi.instance.panel('team_sec_reset_request', body: <String, dynamic>{}));
+
+    if (ok && mounted) adminSay(context, 'Check your email. Open the link while signed in to the website admin.');
+  }
+
   Future<void> _addAdmin(List<Map<String, dynamic>> sections) async {
     final v = await _askSecrets(
       'Add admin',
@@ -231,6 +240,7 @@ class _AdminTeamScreenState extends State<AdminTeamScreen> with AdminLoad<AdminT
         actions.add(AdminButton('Restore', small: true, onPressed: () => _teamDo(a, 'restore', 'Restore')));
         actions.add(AdminButton('Remove', small: true, kind: 'red', onPressed: () => _teamDo(a, 'remove', 'Remove')));
       } else {
+        actions.add(AdminButton('Make master', small: true, kind: 'gray', onPressed: () => _teamDo(a, 'make_master', 'Make master')));
         actions.add(AdminButton('Suspend', small: true, kind: 'gray', onPressed: () => _teamDo(a, 'suspend', 'Suspend')));
         actions.add(AdminButton('Remove', small: true, kind: 'red', onPressed: () => _teamDo(a, 'remove', 'Remove')));
       }
@@ -313,6 +323,7 @@ class _AdminTeamScreenState extends State<AdminTeamScreen> with AdminLoad<AdminT
                     runSpacing: 8,
                     children: [
                       AdminButton(hasSec ? 'Change security password' : 'Set security password', small: true, onPressed: () => _setSecurity(hasSec)),
+                      if (hasSec) AdminButton('Forgot it?', small: true, kind: 'gray', onPressed: _forgotSecurity),
                       if (iAmMaster) AdminButton('➕ Add admin', small: true, kind: 'gray', onPressed: () => hasSec ? _addAdmin(sections) : _setSecurity(false)),
                     ],
                   ),

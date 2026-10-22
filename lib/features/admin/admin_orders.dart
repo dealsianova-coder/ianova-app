@@ -558,6 +558,32 @@ class _AdminOrderViewPageState extends State<AdminOrderViewPage> {
     _load();
   }
 
+  final TextEditingController _note = TextEditingController();
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  Future<void> _addNote() async {
+    final text = _note.text.trim();
+
+    if (text.isEmpty) return;
+
+    final ok = await adminTry(
+      context,
+      () => AdminApi.instance.panel('order_note_add', body: {'id': widget.id, 'note': text}),
+    );
+
+    if (!mounted) return;
+
+    if (ok) {
+      _note.clear();
+      _load();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = _data;
@@ -639,6 +665,36 @@ class _AdminOrderViewPageState extends State<AdminOrderViewPage> {
                 ),
               ),
             if (groups.isEmpty) const AdminCard(child: AdminMuted('This order has no items.')),
+            AdminCard(
+              accent: const Color(0xFF7C6FD0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('📝 Internal notes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                  const AdminMuted('Only admins see these. Customers and sellers do not.'),
+                  const SizedBox(height: 10),
+                  for (final n in aList(data['notes']))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(aStr(n['note'])),
+                          AdminMuted('${aStr(n['admin_name'])} · ${aStr(n['created_at'])}'),
+                        ],
+                      ),
+                    ),
+                  TextField(
+                    controller: _note,
+                    minLines: 1,
+                    maxLines: 4,
+                    decoration: AdminField.decoration('Add a note (e.g. called the customer)'),
+                  ),
+                  const SizedBox(height: 8),
+                  AdminButton('Add note', small: true, onPressed: _addNote),
+                ],
+              ),
+            ),
             AdminCard(
               child: Column(
                 children: [

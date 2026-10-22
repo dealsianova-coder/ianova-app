@@ -10,6 +10,7 @@ import 'admin_api.dart';
 import 'admin_broadcast.dart';
 import 'admin_catalog.dart';
 import 'admin_team.dart';
+import 'admin_activity.dart';
 import 'admin_dashboard.dart';
 import 'admin_more.dart';
 import 'admin_orders.dart';
@@ -44,6 +45,7 @@ class _AdminPageState extends State<AdminPage> {
     _NavItem('orders', '🛒', 'Orders', 'pending_orders'),
     _NavItem('users', '👥', 'Users'),
     _NavItem('admins', '🛡️', 'Admin team'),
+    _NavItem('activity', '🧾', 'Activity'),
     _NavItem('sellers', '🏪', 'Sellers', 'sellers'),
     _NavItem('broadcast', '📢', 'Broadcast'),
     _NavItem('subscribers', '✉️', 'Subscribers'),
@@ -65,8 +67,9 @@ class _AdminPageState extends State<AdminPage> {
   Map<String, int> _counts = <String, int>{};
   Timer? _poll;
   List<String>? _allowed;
+  bool _master = false;
 
-  bool _can(String key) => key == 'admins' || _allowed == null || _allowed!.contains(key);
+  bool _can(String key) => key == 'admins' || (key == 'activity' ? _master : (_allowed == null || _allowed!.contains(key)));
 
   @override
   void initState() {
@@ -115,6 +118,7 @@ class _AdminPageState extends State<AdminPage> {
         final al = data['allowed'];
 
         if (al is List) _allowed = [for (final e in al) '$e'];
+        _master = aBool(data['master']);
 
         if (!_can(_page)) {
           for (final it in _items) {
@@ -215,6 +219,8 @@ class _AdminPageState extends State<AdminPage> {
         return AdminUsersScreen(onGo: _go, initialRole: _args['role'] ?? 'all');
       case 'admins':
         return const AdminTeamScreen();
+      case 'activity':
+        return const AdminActivityScreen();
       case 'sellers':
         return const AdminSellersScreen();
       case 'subscribers':
