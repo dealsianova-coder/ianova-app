@@ -884,10 +884,12 @@ class ApiService {
   }
 
   Future<CheckoutResult> checkout({
+    String payPlan = 'full',
     required String name,
     required String email,
     required String phone,
     required String address,
+    String coupon = '',
   }) async {
     final token = await AuthStorage.getToken();
 
@@ -926,6 +928,8 @@ class ApiService {
         'email': cleanEmail,
         'phone': cleanPhone,
         'address': cleanAddress,
+        'pay_plan': payPlan,
+        if (coupon.trim().isNotEmpty) 'coupon': coupon.trim(),
       }),
     );
 
@@ -954,6 +958,36 @@ class ApiService {
     return CheckoutResult.fromJson(
       Map<String, dynamic>.from(order),
     );
+  }
+
+  /// Checks a coupon code against the signed-in customer's cart. Nothing is used up until the order is placed.
+  Future<CouponPreview> checkCoupon(String code) async {
+    final token = await AuthStorage.getToken();
+
+    if (token == null || token.isEmpty) {
+      throw const ApiException('Please sign in first.', statusCode: 401);
+    }
+
+    final response = await _client.post(
+      Uri.parse('$baseUrl/api/coupon_check.php'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'code': code.trim()}),
+    );
+
+    final data = _decode(response.body);
+
+    if (response.statusCode < 200 || response.statusCode >= 300 || data['success'] != true) {
+      throw ApiException(
+        data['error']?.toString() ?? 'This coupon cannot be used.',
+        statusCode: response.statusCode,
+      );
+    }
+
+    return CouponPreview.fromJson(data);
   }
 
   Map<String, dynamic> _decode(String body) {

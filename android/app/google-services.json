@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "971643581397",
+    "project_id": "ianova-556c5",
+    "storage_bucket": "ianova-556c5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:971643581397:android:dfbb1634857dc9b073835c",
+        "android_client_info": {
+          "package_name": "com.example.ianova_admin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCvL8gmtA-lm_XG7oVvTy4Ow_rECd9V_Ik"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:971643581397:android:f60db579d2b441ad73835c",
+        "android_client_info": {
+          "package_name": "com.example.ianova_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCvL8gmtA-lm_XG7oVvTy4Ow_rECd9V_Ik"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

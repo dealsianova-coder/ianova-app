@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/api_config.dart';
+import '../../core/push/push_service.dart';
 import '../../core/network/api_service.dart' show ApiException;
 
 /// Talks to the admin endpoints. Kept apart from the shopper API.
@@ -26,6 +27,7 @@ class AdminApi {
   }
 
   Future<void> signOut() async {
+    await PushService.unregister('admin');
     await (await SharedPreferences.getInstance()).remove(_tokenKey);
   }
 
@@ -95,6 +97,7 @@ class AdminApi {
 
     await (await SharedPreferences.getInstance())
         .setString(_tokenKey, data['token'].toString());
+    PushService.sync();
   }
 
   Future<List<Map<String, dynamic>>> orders() async {

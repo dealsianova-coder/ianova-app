@@ -25,11 +25,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+  final _couponController = TextEditingController();
+  CouponPreview? _coupon;
+  bool _checkingCoupon = false;
 
   List<UserAddress> _addresses = [];
   UserAddress? _selectedAddress;
 
   bool _isLoading = true;
+  String _payPlan = 'full';
+  double _depositPct = 0;
   bool _isPlacingOrder = false;
   bool _isAddingAddress = false;
   String? _error;
@@ -47,6 +52,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     _emailController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    _couponController.dispose();
     super.dispose();
   }
 
@@ -59,6 +65,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
     try {
       final user = await AuthStorage.getUser();
       final addresses = await _api.getAddresses();
+      var depositPct = 0.0;
+
+      try {
+        depositPct = (await _api.getStoreSettings()).depositPct;
+      } catch (_) {
+        depositPct = 0;
+      }
 
       if (!mounted) return;
 
@@ -79,6 +92,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       setState(() {
         _addresses = addresses;
+        _depositPct = depositPct;
         _selectedAddress = selected;
         _isLoading = false;
       });
@@ -157,6 +171,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         email: _emailController.text,
         phone: _phoneController.text,
         address: _addressController.text,
+        payPlan: _depositPct > 0 ? _payPlan : 'full',
+        coupon: _coupon?.code ?? '',
       );
 
       if (!mounted) return;
@@ -225,12 +241,39 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 label: 'Delivery',
                 value: result.delivery,
               ),
+              if (result.discount > 0) ...[
+                const SizedBox(height: IanovaSpacing.sm),
+                _TotalRow(
+                  label: 'Coupon discount',
+                  value: -result.discount,
+                ),
+              ],
               const Divider(height: IanovaSpacing.xl),
               _TotalRow(
                 label: 'Total',
                 value: result.total,
                 emphasized: true,
               ),
+              if (result.payPlan == 'deposit') ...[
+                const SizedBox(height: IanovaSpacing.lg),
+                _TotalRow(
+                  label: 'Deposit to pay now',
+                  value: result.depositDue,
+                  emphasized: true,
+                ),
+                const SizedBox(height: IanovaSpacing.sm),
+                _TotalRow(
+                  label: 'Balance later',
+                  value: result.total - result.depositDue,
+                ),
+              ],
+              if (result.payInstructions.isNotEmpty) ...[
+                const SizedBox(height: IanovaSpacing.lg),
+                Text(
+                  result.payInstructions,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
               const SizedBox(height: IanovaSpacing.lg),
               const Text(
                 'Your order is now pending and has been recorded successfully.',
@@ -340,7 +383,80 @@ class _CheckoutPageState extends State<CheckoutPage> {
           const SizedBox(height: IanovaSpacing.xl),
           _buildFormFields(),
           const SizedBox(height: IanovaSpacing.xl),
+          _buildPayPlanCard(),
+          _buildCouponCard(),
+          const SizedBox(height: IanovaSpacing.lg),
           _buildPlaceOrderButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPayPlanCard() {
+    if (_depositPct <= 0) return const SizedBox.shrink();
+
+    final pct = _depositPct == _depositPct.roundToDouble()
+        ? _depositPct.toStringAsFixed(0)
+        : _depositPct.toStringAsFixed(2);
+
+    Widget tile(String value, String title, String text) {
+      final selected = _payPlan == value;
+
+      return Padding(
+        padding: const EdgeInsets.only(bottom: IanovaSpacing.sm),
+        child: InkWell(
+          onTap: () => setState(() => _payPlan = value),
+          borderRadius: BorderRadius.circular(IanovaSpacing.radiusMedium),
+          child: Container(
+            padding: const EdgeInsets.all(IanovaSpacing.md),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(IanovaSpacing.radiusMedium),
+              border: Border.all(
+                color: selected ? IanovaColors.primary : IanovaColors.border,
+                width: selected ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  selected ? Icons.radio_button_checked : Icons.radio_button_off,
+                  color: selected ? IanovaColors.primary : IanovaColors.muted,
+                ),
+                const SizedBox(width: IanovaSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 3),
+                      Text(text, style: const TextStyle(color: IanovaColors.secondary)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: IanovaSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'How do you want to pay?',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: IanovaSpacing.sm),
+          tile('full', 'Pay in full', 'Pay the whole amount.'),
+          tile(
+            'deposit',
+            'Pay a $pct% deposit now',
+            'Pay the rest later. You see the exact amounts when the order is placed.',
+          ),
         ],
       ),
     );
@@ -462,6 +578,113 @@ class _CheckoutPageState extends State<CheckoutPage> {
           },
         ),
         AddressSuggestions(controller: _addressController),
+      ],
+    );
+  }
+
+  Future<void> _applyCoupon() async {
+    final code = _couponController.text.trim();
+
+    if (code.isEmpty || _checkingCoupon) return;
+
+    FocusScope.of(context).unfocus();
+    setState(() => _checkingCoupon = true);
+
+    try {
+      final preview = await _api.checkCoupon(code);
+
+      if (!mounted) return;
+
+      setState(() => _coupon = preview);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(preview.message)));
+    } on ApiException catch (error) {
+      if (!mounted) return;
+
+      setState(() => _coupon = null);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not check the coupon. Please try again.')),
+      );
+    } finally {
+      if (mounted) setState(() => _checkingCoupon = false);
+    }
+  }
+
+  void _removeCoupon() {
+    setState(() {
+      _coupon = null;
+      _couponController.clear();
+    });
+  }
+
+  Widget _buildCouponCard() {
+    final coupon = _coupon;
+
+    if (coupon != null) {
+      return Container(
+        padding: const EdgeInsets.all(IanovaSpacing.md),
+        decoration: BoxDecoration(
+          color: IanovaColors.soft,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: IanovaColors.success),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.local_offer_outlined, color: IanovaColors.success),
+            const SizedBox(width: IanovaSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${coupon.code} · ${coupon.label}',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  Text(
+                    'You save ${formatKsh(coupon.discount)}. New total ${formatKsh(coupon.total)}.',
+                    style: const TextStyle(color: IanovaColors.secondary),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(onPressed: _removeCoupon, child: const Text('Remove')),
+          ],
+        ),
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _couponController,
+            textCapitalization: TextCapitalization.characters,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _applyCoupon(),
+            decoration: const InputDecoration(
+              labelText: 'Coupon code (optional)',
+              prefixIcon: Icon(Icons.local_offer_outlined),
+            ),
+          ),
+        ),
+        const SizedBox(width: IanovaSpacing.sm),
+        SizedBox(
+          height: 52,
+          child: OutlinedButton(
+            onPressed: _checkingCoupon ? null : _applyCoupon,
+            child: _checkingCoupon
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Apply'),
+          ),
+        ),
       ],
     );
   }

@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/push/push_service.dart';
 import 'seller_models.dart';
 
 class SellerStorage {
@@ -17,6 +18,7 @@ class SellerStorage {
     await prefs.setString(_nameKey, session.businessName);
     await prefs.setString(_emailKey, session.email);
     await prefs.setString(_statusKey, session.status);
+    PushService.sync();
   }
 
   static Future<SellerSession?> load() async {
@@ -37,6 +39,7 @@ class SellerStorage {
   }
 
   static Future<void> clear() async {
+    await PushService.unregister('seller');
     final prefs = await SharedPreferences.getInstance();
 
     await prefs.remove(_tokenKey);

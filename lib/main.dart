@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/network/api_service.dart';
+import 'core/push/push_service.dart';
 import 'core/state/wishlist_controller.dart';
 import 'core/theme/ianova_theme.dart';
 import 'features/home/home_page.dart';
@@ -12,7 +13,9 @@ import 'features/profile/profile_page.dart';
 import 'models/product.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const IanovaApp());
+  PushService.start(); // phone notifications
 }
 
 class IanovaApp extends StatelessWidget {

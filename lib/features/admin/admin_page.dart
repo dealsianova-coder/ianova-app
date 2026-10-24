@@ -13,8 +13,10 @@ import 'admin_catalog.dart';
 import 'admin_team.dart';
 import 'admin_activity.dart';
 import 'admin_dashboard.dart';
+import 'admin_money.dart';
 import 'admin_more.dart';
 import 'admin_orders.dart';
+import 'admin_payments.dart';
 import 'admin_products.dart';
 import 'admin_sellers.dart';
 import 'admin_store.dart';
@@ -57,6 +59,9 @@ class _AdminPageState extends State<AdminPage> {
     _NavItem('store', '🎛️', 'Store control'),
     _NavItem('display', '🖥️', 'Display control'),
     _NavItem('flash', '⚡', 'Flash deals'),
+    _NavItem('coupons', '🎟️', 'Coupons'),
+    _NavItem('payouts', '💸', 'Seller payouts'),
+    _NavItem('payments', '💳', 'Payments'),
     _NavItem('settings', '⚙️', 'Settings'),
     _NavItem('alerts', '🔔', 'Alerts', 'alerts'),
   ];
@@ -242,6 +247,12 @@ class _AdminPageState extends State<AdminPage> {
         return const AdminStoreScreen();
       case 'flash':
         return const AdminFlashScreen();
+      case 'coupons':
+        return const AdminCouponsScreen();
+      case 'payouts':
+        return const AdminPayoutsScreen();
+      case 'payments':
+        return const AdminPaymentsScreen();
       case 'settings':
         return const AdminSettingsScreen();
       case 'alerts':

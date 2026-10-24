@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/auth/auth_user.dart';
+import '../push/push_service.dart';
 
 class AuthStorage {
   AuthStorage._();
@@ -20,6 +21,7 @@ class AuthStorage {
     await prefs.setInt(_userIdKey, user.id);
     await prefs.setString(_userNameKey, user.name);
     await prefs.setString(_userEmailKey, user.email);
+    PushService.sync();
   }
 
   static Future<String?> getToken() async {
@@ -46,6 +48,7 @@ class AuthStorage {
   }
 
   static Future<void> clearSession() async {
+    await PushService.unregister('app');
     final prefs = await SharedPreferences.getInstance();
 
     await prefs.remove(_tokenKey);

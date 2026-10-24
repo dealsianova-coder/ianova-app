@@ -596,6 +596,170 @@ class _AdminOrderViewPageState extends State<AdminOrderViewPage> {
     }
   }
 
+  Future<void> _recordPayment(double balance, double suggested) async {
+    final amount = TextEditingController(text: suggested.toStringAsFixed(2));
+    final method = TextEditingController();
+    final reference = TextEditingController();
+
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Record payment', style: TextStyle(fontWeight: FontWeight.w900)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AdminMuted('Record money you received (M-Pesa, cash, bank). The customer gets an email. Balance now: ${aMoney(balance)}.'),
+              const SizedBox(height: 12),
+              AdminField(label: 'Amount received', controller: amount, keyboard: const TextInputType.numberWithOptions(decimal: true)),
+              AdminField(label: 'Method (M-Pesa, cash, bank)', controller: method),
+              AdminField(label: 'Transaction code', controller: reference),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Record payment')),
+        ],
+      ),
+    );
+
+    final body = {'id': widget.id, 'amount': amount.text.trim(), 'method': method.text.trim(), 'reference': reference.text.trim()};
+
+    amount.dispose();
+    method.dispose();
+    reference.dispose();
+
+    if (go != true || !mounted) return;
+
+    final ok = await adminTry(context, () => AdminApi.instance.panel('order_payment_add', body: body));
+
+    if (!mounted) return;
+
+    if (ok) {
+      adminSay(context, 'Payment recorded and the customer was emailed.');
+      _load();
+    }
+  }
+
+  Widget _paymentsCard(Map<String, dynamic> data, Map<String, dynamic> o) {
+    final pay = aMap(data['pay']);
+
+    if (pay.isEmpty) return const SizedBox.shrink();
+
+    final state = aStr(pay['pay_state']);
+    final balance = aNum(pay['balance']);
+    final depositLeft = aNum(pay['deposit_left']);
+    final isDeposit = aStr(pay['pay_plan']) == 'deposit';
+    final pct = aNum(pay['deposit_pct']);
+    final pctText = pct == pct.roundToDouble() ? pct.toStringAsFixed(0) : pct.toStringAsFixed(2);
+
+    final String tagText;
+    final String tagKind;
+
+    switch (state) {
+      case 'paid':
+        tagText = 'Paid in full';
+        tagKind = 'ok';
+        break;
+      case 'deposit':
+        tagText = 'Deposit paid';
+        tagKind = 'wait';
+        break;
+      case 'part':
+        tagText = 'Part paid';
+        tagKind = 'wait';
+        break;
+      case 'cancelled':
+        tagText = 'Cancelled';
+        tagKind = 'na';
+        break;
+      default:
+        tagText = 'Not paid';
+        tagKind = 'na';
+    }
+
+    return AdminCard(
+      accent: state == 'paid' ? AC.green : AC.goldLight,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(child: Text('💳 Payments', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900))),
+              ATag(tagText, kind: tagKind),
+            ],
+          ),
+          const SizedBox(height: 8),
+          AdminMuted(isDeposit ? 'The customer chose to pay a $pctText% deposit now and the rest later.' : 'The customer chose to pay in full.'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _payFigure('Order total', aNum(o['total'])),
+              if (isDeposit) _payFigure('Deposit', aNum(pay['deposit_due'])),
+              _payFigure('Paid', aNum(pay['paid'])),
+              _payFigure('Balance', balance),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (final p in aList(pay['list']))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${aMoney(p['amount'])}  ${aStr(p['method'])}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                        AdminMuted('${aStr(p['reference']).isEmpty ? '' : '${aStr(p['reference'])} · '}${aStr(p['admin_name'])} · ${aStr(p['created_at'])}'),
+                      ],
+                    ),
+                  ),
+                  TextButton(onPressed: () => _removePayment(aInt(p['id'])), child: const Text('Remove')),
+                ],
+              ),
+            ),
+          if (state != 'cancelled' && balance > 0.009)
+            AdminButton('Record payment', small: true, onPressed: () => _recordPayment(balance, depositLeft > 0.009 ? depositLeft : balance)),
+        ],
+      ),
+    );
+  }
+
+  Widget _payFigure(String label, double value) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: AC.soft, borderRadius: BorderRadius.circular(10)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: const TextStyle(color: AC.muted, fontSize: 11, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text(aMoney(value), style: const TextStyle(fontWeight: FontWeight.w900)),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _removePayment(int paymentId) async {
+    final go = await adminConfirm(context, 'Remove this payment? Only do this if it was entered by mistake.');
+
+    if (!go || !mounted) return;
+
+    final ok = await adminTry(context, () => AdminApi.instance.panel('order_payment_delete', body: {'payment_id': paymentId}));
+
+    if (!mounted) return;
+
+    if (ok) _load();
+  }
+
   Future<void> _refund(double left) async {
     final amount = TextEditingController();
     final method = TextEditingController();
@@ -743,6 +907,7 @@ class _AdminOrderViewPageState extends State<AdminOrderViewPage> {
                 ),
               ),
             if (groups.isEmpty) const AdminCard(child: AdminMuted('This order has no items.')),
+            _paymentsCard(data, o),
             AdminCard(
               accent: const Color(0xFF17A2A2),
               child: Column(
@@ -775,8 +940,8 @@ class _AdminOrderViewPageState extends State<AdminOrderViewPage> {
                         ],
                       ),
                     ),
-                  if (aStr(o['status']) != 'pending') AdminButton('Record refund', small: true, kind: 'red', onPressed: () => _refund(aNum(o['total']) - aNum(data['refunded']))),
-                  if (aStr(o['status']) == 'pending') const AdminMuted('Nothing was paid yet: this order is still pending.'),
+                  if (aStr(o['status']) != 'pending' || aNum(aMap(data['pay'])['paid']) > 0) AdminButton('Record refund', small: true, kind: 'red', onPressed: () => _refund(aNum(o['total']) - aNum(data['refunded']))),
+                  if (aStr(o['status']) == 'pending' && aNum(aMap(data['pay'])['paid']) <= 0) const AdminMuted('Nothing was paid yet: this order is still pending.'),
                 ],
               ),
             ),

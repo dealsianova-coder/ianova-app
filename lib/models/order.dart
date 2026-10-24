@@ -11,6 +11,14 @@ class Order {
     this.subtotal,
     this.delivery,
     this.items = const [],
+    this.discount = 0,
+    this.couponCode = '',
+    this.paid = 0,
+    this.balance = 0,
+    this.depositDue = 0,
+    this.payPlan = 'full',
+    this.payState = '',
+    this.payInstructions = '',
   });
 
   final int id;
@@ -24,6 +32,14 @@ class Order {
   final double? subtotal;
   final double? delivery;
   final List<OrderItem> items;
+  final double discount;
+  final String couponCode;
+  final double paid;
+  final double balance;
+  final double depositDue;
+  final String payPlan;
+  final String payState;
+  final String payInstructions;
 
   bool get hasItems => items.isNotEmpty;
 
@@ -45,6 +61,14 @@ class Order {
       delivery: json.containsKey('delivery')
           ? double.tryParse(json['delivery'].toString())
           : null,
+      discount: double.tryParse('${json['discount']}') ?? 0,
+      couponCode: json['coupon_code']?.toString() ?? '',
+      paid: double.tryParse('${json['paid']}') ?? 0,
+      balance: double.tryParse('${json['balance']}') ?? 0,
+      depositDue: double.tryParse('${json['deposit_due']}') ?? 0,
+      payPlan: json['pay_plan']?.toString() ?? 'full',
+      payState: json['pay_state']?.toString() ?? '',
+      payInstructions: json['pay_instructions']?.toString() ?? '',
       items: rawItems is List
           ? rawItems
               .whereType<Map>()

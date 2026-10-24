@@ -728,12 +728,48 @@ class _TotalsCard extends StatelessWidget {
                 value: order.delivery!,
               ),
             ],
+            if (order.discount > 0) ...[
+              const SizedBox(height: _spaceSm),
+              _TotalRow(
+                label: order.couponCode.isEmpty ? 'Coupon discount' : 'Coupon ${order.couponCode}',
+                value: -order.discount,
+              ),
+            ],
             const Divider(height: _spaceLg),
             _TotalRow(
               label: 'Total',
               value: order.total,
               bold: true,
             ),
+            if (order.status != 'cancelled' && (order.paid > 0 || order.payPlan == 'deposit')) ...[
+              const SizedBox(height: _spaceSm),
+              if (order.payPlan == 'deposit')
+                _TotalRow(
+                  label: 'Deposit',
+                  value: order.depositDue,
+                ),
+              if (order.payPlan == 'deposit') const SizedBox(height: _spaceSm),
+              _TotalRow(
+                label: 'Paid so far',
+                value: order.paid,
+              ),
+              const SizedBox(height: _spaceSm),
+              _TotalRow(
+                label: order.balance > 0.009 ? 'Balance to pay' : 'Paid in full',
+                value: order.balance,
+                bold: true,
+              ),
+            ],
+            if (order.status != 'cancelled' && order.balance > 0.009 && order.payInstructions.isNotEmpty) ...[
+              const SizedBox(height: _spaceMd),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'How to pay: ${order.payInstructions}',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
           ],
         ),
       ),

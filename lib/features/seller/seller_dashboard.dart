@@ -7,6 +7,7 @@ import '../../core/config/api_config.dart';
 import '../../core/theme/ianova_theme.dart';
 import 'seller_account_tab.dart';
 import 'seller_auto_tab.dart';
+import 'seller_balance_card.dart';
 import 'seller_home_tab.dart';
 import 'seller_inbox_view.dart';
 import 'seller_models.dart';
@@ -96,6 +97,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
       case 0:
         return SellerHomeTab(
           dash: _dash,
+          balance: SellerBalanceCard(key: ObjectKey(_dash), token: widget.session.token, onExpired: widget.onExpired),
           onGo: _go,
           onRefresh: _loadDash,
           onToggleAuto: (on) async {

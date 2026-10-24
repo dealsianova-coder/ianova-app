@@ -14,12 +14,14 @@ class SellerHomeTab extends StatelessWidget {
     required this.onGo,
     required this.onRefresh,
     this.onToggleAuto,
+    this.balance,
   });
 
   final PanelDashboard? dash;
   final void Function(int index, {String productFilter}) onGo;
   final Future<void> Function() onRefresh;
   final Future<void> Function(bool on)? onToggleAuto;
+  final Widget? balance;
 
   Widget _attention(String icon, String text, VoidCallback onTap) {
     return InkWell(
@@ -138,6 +140,7 @@ class SellerHomeTab extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
+          if (balance != null) ...[balance!, const SizedBox(height: 14)],
           PanelBlock(
               color: const Color(0xFFFFFBF1),
               borderColor: const Color(0xFFF6E3B4),
