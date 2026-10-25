@@ -120,6 +120,8 @@ class AdminOrderItemPage extends StatelessWidget {
               ],
             ),
           ),
+          if (!const ['pending', 'cancelled'].contains(aStr(order['status'])))
+            _ItemProgress(orderId: aInt(order['id']), productId: aInt(line['product_id']), current: aStr(line['item_status'])),
           if (const ['pending', 'approved', 'paid'].contains(aStr(order['status'])))
             AdminCard(
               accent: AC.red,
@@ -134,6 +136,72 @@ class AdminOrderItemPage extends StatelessWidget {
               ),
             ),
           AdminButton('Back to order', kind: 'gray', onPressed: () => Navigator.of(context).pop()),
+        ],
+      ),
+    );
+  }
+}
+
+/// Pack and ship one item at a time (the order keeps its own status).
+class _ItemProgress extends StatefulWidget {
+  const _ItemProgress({required this.orderId, required this.productId, required this.current});
+
+  final int orderId;
+  final int productId;
+  final String current;
+
+  @override
+  State<_ItemProgress> createState() => _ItemProgressState();
+}
+
+class _ItemProgressState extends State<_ItemProgress> {
+  late String _now = widget.current;
+  bool _busy = false;
+
+  static const List<List<String>> _steps = [
+    ['', 'Not started'],
+    ['packed', 'Packed'],
+    ['shipped', 'Shipped'],
+    ['delivered', 'Delivered'],
+  ];
+
+  Future<void> _set(String value) async {
+    if (_busy || value == _now) return;
+    setState(() => _busy = true);
+    final ok = await adminTry(
+      context,
+      () => AdminApi.instance.panel('order_item_status', body: {'id': widget.orderId, 'product_id': widget.productId, 'status': value}),
+    );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (ok) _now = value;
+    });
+    if (ok) adminSay(context, 'Item updated.');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AdminCard(
+      accent: AC.green,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("This item's progress", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+          const AdminMuted('Pack and ship items one at a time. The order itself keeps its own status.'),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final st in _steps)
+                ChoiceChip(
+                  label: Text(st[1]),
+                  selected: _now == st[0],
+                  onSelected: _busy ? null : (_) => _set(st[0]),
+                ),
+            ],
+          ),
         ],
       ),
     );
