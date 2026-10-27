@@ -10,6 +10,7 @@ import 'admin_analytics.dart';
 import 'admin_api.dart';
 import 'admin_broadcast.dart';
 import 'admin_catalog.dart';
+import 'admin_dark.dart';
 import 'admin_team.dart';
 import 'admin_activity.dart';
 import 'admin_dashboard.dart';
@@ -295,7 +296,7 @@ class _AdminPageState extends State<AdminPage> {
     final alerts = _counts['alerts'] ?? 0;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: AdminKeepBar(AppBar(
         title: Text(_title),
         actions: [
           IconButton(
@@ -329,8 +330,8 @@ class _AdminPageState extends State<AdminPage> {
             ),
           ),
         ],
-      ),
-      drawer: Drawer(
+      )),
+      drawer: AdminKeepColors(child: Drawer(
         backgroundColor: AC.side,
         child: SafeArea(
           child: Column(
@@ -378,6 +379,16 @@ class _AdminPageState extends State<AdminPage> {
                       },
                     ),
                     _DrawerRow(
+                      item: _NavItem('dark', '🌙', adminDark.value ? 'Light mode' : 'Dark mode'),
+                      selected: false,
+                      badge: 0,
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        adminDarkSet(!adminDark.value);
+                        setState(() {});
+                      },
+                    ),
+                    _DrawerRow(
                       item: const _NavItem('logout', '🚪', 'Logout'),
                       selected: false,
                       badge: 0,
@@ -392,7 +403,7 @@ class _AdminPageState extends State<AdminPage> {
             ],
           ),
         ),
-      ),
+      )),
       body: SafeArea(
         top: false,
         child: KeyedSubtree(

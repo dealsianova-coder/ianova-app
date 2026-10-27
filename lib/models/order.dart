@@ -19,6 +19,10 @@ class Order {
     this.payPlan = 'full',
     this.payState = '',
     this.payInstructions = '',
+    this.trackingCourier = '',
+    this.trackingNo = '',
+    this.trackingNote = '',
+    this.timeline = const [],
   });
 
   final int id;
@@ -40,6 +44,10 @@ class Order {
   final String payPlan;
   final String payState;
   final String payInstructions;
+  final String trackingCourier;
+  final String trackingNo;
+  final String trackingNote;
+  final List<Map<String, String>> timeline;
 
   bool get hasItems => items.isNotEmpty;
 
@@ -69,6 +77,15 @@ class Order {
       payPlan: json['pay_plan']?.toString() ?? 'full',
       payState: json['pay_state']?.toString() ?? '',
       payInstructions: json['pay_instructions']?.toString() ?? '',
+      trackingCourier: json['tracking_courier']?.toString() ?? '',
+      trackingNo: json['tracking_no']?.toString() ?? '',
+      trackingNote: json['tracking_note']?.toString() ?? '',
+      timeline: json['timeline'] is List
+          ? (json['timeline'] as List)
+              .whereType<Map>()
+              .map((e) => e.map((k, v) => MapEntry(k.toString(), v?.toString() ?? '')))
+              .toList()
+          : const [],
       items: rawItems is List
           ? rawItems
               .whereType<Map>()
@@ -97,6 +114,7 @@ class OrderItem {
     required this.quantity,
     required this.unitPrice,
     required this.itemTotal,
+    this.itemStatus = '',
   });
 
   final int id;
@@ -111,6 +129,7 @@ class OrderItem {
   final int quantity;
   final double unitPrice;
   final double itemTotal;
+  final String itemStatus; // '', packed, shipped, delivered
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
@@ -128,6 +147,7 @@ class OrderItem {
       quantity: int.tryParse(json['quantity'].toString()) ?? 0,
       unitPrice: double.tryParse(json['unit_price'].toString()) ?? 0,
       itemTotal: double.tryParse(json['item_total'].toString()) ?? 0,
+      itemStatus: json['item_status']?.toString() ?? '',
     );
   }
 }

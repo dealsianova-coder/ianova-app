@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'features/admin/admin_dark.dart';
 import 'core/push/push_service.dart';
 import 'features/admin/admin_page.dart';
 import 'features/splash/splash_page.dart';
@@ -21,6 +22,7 @@ class IanovaAdminApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'IANOVA Admin',
       theme: adminTheme(),
+      builder: (context, child) => AdminDarkShell(child: child ?? const SizedBox.shrink()),
       home: const SplashGate(next: AdminPage()),
     );
   }

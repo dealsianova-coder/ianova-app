@@ -253,9 +253,10 @@ class AdminUsersScreen extends StatefulWidget {
 class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<AdminUsersScreen> {
   final TextEditingController _search = TextEditingController();
   String _role = 'all';
+  int _limit = 100;
 
   @override
-  Future<Map<String, dynamic>> fetch() => AdminApi.instance.panel('users_list');
+  Future<Map<String, dynamic>> fetch() => AdminApi.instance.panel('users_list', query: {'q': _search.text.trim(), 'limit': '$_limit'});
 
   @override
   void initState() {
@@ -322,7 +323,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<Admi
   }
 
   Future<void> _delete(Map<String, dynamic> u) async {
-    if (!await adminConfirm(context, 'Delete ${aStr(u['name'])}?')) return;
+    if (!await adminConfirm(context, 'Delete ${aStr(u['name'])}? If they have orders, the account is closed and the orders are kept.')) return;
     if (!mounted) return;
 
     await adminTry(context, () => AdminApi.instance.panel('user_delete', body: {'id': aInt(u['id'])}));
@@ -360,6 +361,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<Admi
           controller: _search,
           textInputAction: TextInputAction.search,
           onChanged: (_) => setState(() {}),
+          onSubmitted: (_) {
+            _limit = 100;
+            load();
+          },
           decoration: AdminField.decoration('Search name or email'),
         ),
         const SizedBox(height: 10),
@@ -439,6 +444,17 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<Admi
         }
 
         if (users.isEmpty) children.add(const AdminCard(child: AdminMuted('No customers.')));
+        if (aBool(d['more']))
+          children.add(
+            AdminButton(
+              'Show more customers',
+              kind: 'gray',
+              onPressed: () {
+                _limit += 100;
+                load();
+              },
+            ),
+          );
       }
 
       return RefreshIndicator(

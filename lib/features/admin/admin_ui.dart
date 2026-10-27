@@ -4,6 +4,7 @@ import '../../core/config/api_config.dart';
 import '../../core/format/money.dart';
 import '../../core/network/api_service.dart' show ApiException;
 import '../../core/theme/ianova_theme.dart';
+import 'admin_dark.dart';
 
 /// Colours of the website admin, so the app looks the same.
 class AC {
@@ -591,12 +592,14 @@ class AdminThumb extends StatelessWidget {
 
     return ClipRRect(
       borderRadius: radius,
-      child: Image.network(
-        IanovaApiConfig.imageUrl(image),
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => fallback,
+      child: AdminKeepColors(
+        child: Image.network(
+          IanovaApiConfig.imageUrl(image),
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => fallback,
+        ),
       ),
     );
   }

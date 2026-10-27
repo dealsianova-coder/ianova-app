@@ -93,6 +93,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ['💬', 'Unread seller messages', aInt(c['unread_messages']), 'sellers', <String, String>{}],
       ['🔔', 'Unread alerts', aInt(c['alerts']), 'alerts', <String, String>{}],
       ['⚠️', 'Low stock (3 or less)', aInt(c['low_stock']), 'products', <String, String>{}],
+      ['⏰', 'Orders waiting over 24 hours', aInt(c['old_pending']), 'orders', <String, String>{'status': 'pending'}],
+      ['🚚', 'Shipped over 7 days, not delivered', aInt(c['stuck_shipped']), 'orders', <String, String>{'status': 'shipped'}],
+      ['💳', 'Orders with a balance to collect', aInt(c['to_collect']), 'payments', <String, String>{}],
+      ['💸', 'Sellers waiting for a payout', aInt(c['payouts_due']), 'payouts', <String, String>{}],
+      ['💾', 'No backup in the last 3 days', aInt(c['backup_old']), 'dashboard', <String, String>{}],
     ];
 
     var attentionTotal = 0;

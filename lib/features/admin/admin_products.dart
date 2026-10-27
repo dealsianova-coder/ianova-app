@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/config/api_config.dart';
 import 'admin_api.dart';
 import 'admin_bulk.dart';
+import 'admin_dark.dart';
 import 'admin_ui.dart';
 
 const Map<String, String> _statusLabels = {
@@ -55,6 +56,7 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
   Map<String, dynamic>? _data;
   String? _error;
   bool _loading = true;
+  int _limit = 40;
 
   @override
   void initState() {
@@ -78,6 +80,7 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
           'q': _search.text.trim(),
           'status': _status,
           'category': '$_category',
+          'limit': '$_limit',
         },
       );
 
@@ -98,8 +101,17 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
     }
   }
 
+  void _more() {
+    setState(() {
+      _limit += 40;
+      _loading = true;
+    });
+    _load();
+  }
+
   void _reload({String? status, int? category}) {
     setState(() {
+      _limit = 40;
       if (status != null) _status = status;
       if (category != null) _category = category;
       _loading = true;
@@ -289,6 +301,11 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                 ],
               ),
             ),
+          if (aBool(data['more']))
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: AdminButton('Show more products', kind: 'gray', busy: _loading, onPressed: _more),
+            ),
           if (_loading) const LinearProgressIndicator(),
         ],
       ),
@@ -405,10 +422,12 @@ class _AdminProductViewPageState extends State<AdminProductViewPage> {
                               style: const TextStyle(fontSize: 72),
                             ),
                           )
-                        : Image.network(
-                            IanovaApiConfig.imageUrl(_shown!),
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(color: AC.soft),
+                        : AdminKeepColors(
+                            child: Image.network(
+                              IanovaApiConfig.imageUrl(_shown!),
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Container(color: AC.soft),
+                            ),
                           ),
                   ),
                 ),
@@ -433,12 +452,14 @@ class _AdminProductViewPageState extends State<AdminProductViewPage> {
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(9),
-                                child: Image.network(
-                                  IanovaApiConfig.imageUrl(img),
-                                  width: 60,
-                                  height: 60,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => const SizedBox(width: 60, height: 60),
+                                child: AdminKeepColors(
+                                  child: Image.network(
+                                    IanovaApiConfig.imageUrl(img),
+                                    width: 60,
+                                    height: 60,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => const SizedBox(width: 60, height: 60),
+                                  ),
                                 ),
                               ),
                             ),

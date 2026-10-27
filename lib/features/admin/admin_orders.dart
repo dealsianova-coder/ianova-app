@@ -45,6 +45,9 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   Map<String, dynamic>? _data;
   String? _error;
   bool _loading = true;
+  int _limit = 40;
+  bool _select = false;
+  final Set<int> _picked = <int>{};
 
   @override
   void initState() {
@@ -70,6 +73,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
           'status': _status,
           'seller': '$_seller',
           'q': _search.text.trim(),
+          'limit': '$_limit',
         },
       );
 
@@ -90,8 +94,17 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     }
   }
 
+  void _more() {
+    setState(() {
+      _limit += 40;
+      _loading = true;
+    });
+    _load();
+  }
+
   void _reload({String? tab, String? status, int? seller}) {
     setState(() {
+      _limit = 40;
       if (tab != null) {
         _tab = tab;
         _seller = 0;
@@ -120,6 +133,29 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     _load();
   }
 
+  Future<void> _bulk(String status) async {
+    if (_picked.isEmpty) return;
+    if (!await adminConfirm(context, 'Mark ${_picked.length} order(s) as $status? Orders only move forward; cancelled ones are skipped.')) return;
+    if (!mounted) return;
+
+    Map<String, dynamic> res = <String, dynamic>{};
+    final ok = await adminTry(context, () async {
+      res = await AdminApi.instance.panel('orders_bulk_status', body: {'ids': _picked.toList(), 'status': status});
+    });
+
+    if (!mounted) return;
+
+    if (ok) {
+      final skipped = aInt(res['skipped']);
+      adminSay(context, '${aInt(res['updated'])} updated${skipped > 0 ? ', $skipped skipped' : ''}.');
+      setState(() {
+        _picked.clear();
+        _select = false;
+      });
+    }
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = _data;
@@ -138,15 +174,33 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     final List<Widget> rows = _tab == 'main'
         ? <Widget>[
             for (final o in orders)
-              AdminCard(
-                child: _OrderBlock(
-                  order: o,
-                  lines: aList(o['lines']),
-                  approvals: const <Map<String, dynamic>>[],
-                  itemsLabel: 'IANOVA items',
-                  onOpen: () => _open(aInt(o['id'])),
-                  onStatus: (s) => _setStatus(aInt(o['id']), s),
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_select)
+                    Checkbox(
+                      value: _picked.contains(aInt(o['id'])),
+                      onChanged: (v) => setState(() {
+                        if (v == true) {
+                          _picked.add(aInt(o['id']));
+                        } else {
+                          _picked.remove(aInt(o['id']));
+                        }
+                      }),
+                    ),
+                  Expanded(
+                    child: AdminCard(
+                      child: _OrderBlock(
+                        order: o,
+                        lines: aList(o['lines']),
+                        approvals: const <Map<String, dynamic>>[],
+                        itemsLabel: 'IANOVA items',
+                        onOpen: () => _open(aInt(o['id'])),
+                        onStatus: (s) => _setStatus(aInt(o['id']), s),
+                      ),
+                    ),
+                  ),
+                ],
               ),
           ]
         : _sellerGroups(orders);
@@ -229,10 +283,48 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
               AdminButton('Search', onPressed: () => _reload()),
             ],
           ),
+          const SizedBox(height: 10),
+          if (_tab == 'main')
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                AdminButton(
+                  _select ? 'Cancel selecting' : '☑️ Select several',
+                  small: true,
+                  kind: 'gray',
+                  onPressed: () => setState(() {
+                    _select = !_select;
+                    _picked.clear();
+                  }),
+                ),
+                if (_select && orders.isNotEmpty)
+                  AdminButton(
+                    'Select all shown',
+                    small: true,
+                    kind: 'gray',
+                    onPressed: () => setState(() {
+                      for (final o in orders) {
+                        _picked.add(aInt(o['id']));
+                      }
+                    }),
+                  ),
+                if (_select && _picked.isNotEmpty) ...[
+                  AdminButton('Approve (${_picked.length})', small: true, onPressed: () => _bulk('approved')),
+                  AdminButton('Shipped (${_picked.length})', small: true, onPressed: () => _bulk('shipped')),
+                  AdminButton('Delivered (${_picked.length})', small: true, kind: 'green', onPressed: () => _bulk('delivered')),
+                ],
+              ],
+            ),
           const SizedBox(height: 14),
           if (orders.isEmpty)
             const AdminCard(child: AdminMuted('No orders in this section.')),
           ...rows,
+          if (aBool(data['more']))
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: AdminButton('Show more orders', kind: 'gray', busy: _loading, onPressed: _more),
+            ),
           if (_loading) const LinearProgressIndicator(),
         ],
       ),
@@ -945,6 +1037,39 @@ class _AdminOrderViewPageState extends State<AdminOrderViewPage> {
                 ],
               ),
             ),
+            if (aList(data['timeline']).isNotEmpty)
+              AdminCard(
+                accent: const Color(0xFF2F6FDE),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('🕒 Timeline', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 10),
+                    for (final e in aList(data['timeline']))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(aStr(e['icon']), style: const TextStyle(fontSize: 18)),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(aStr(e['title']), style: const TextStyle(fontWeight: FontWeight.w800)),
+                                  if (aStr(e['detail']).isNotEmpty) AdminMuted(aStr(e['detail'])),
+                                  AdminMuted('${aStr(e['at'])}${aStr(e['by']).isEmpty ? '' : ' · ${aStr(e['by'])}'}'),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const AdminMuted('Status changes are recorded from when this feature was installed.'),
+                  ],
+                ),
+              ),
             AdminCard(
               accent: const Color(0xFF7C6FD0),
               child: Column(

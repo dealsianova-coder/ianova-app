@@ -502,6 +502,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         children: [
           _DetailHeader(order: order),
           const SizedBox(height: _spaceMd),
+          _ProgressCard(order: order),
+          const SizedBox(height: _spaceMd),
           _AddressCard(order: order),
           const SizedBox(height: _spaceMd),
           Text(
@@ -684,6 +686,13 @@ class _OrderItemCard extends StatelessWidget {
                     '${item.quantity} × ${formatKsh(item.unitPrice)}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  if (item.itemStatus.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      item.itemStatus == 'delivered' ? '✅ Delivered' : item.itemStatus == 'shipped' ? '🚚 Shipped' : '📦 Packed',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -809,6 +818,96 @@ class _TotalRow extends StatelessWidget {
           style: style,
         ),
       ],
+    );
+  }
+}
+
+/// Where the order is now: Placed, Approved, Shipped, Delivered, plus courier details and the story so far.
+class _ProgressCard extends StatelessWidget {
+  const _ProgressCard({required this.order});
+
+  final Order order;
+
+  @override
+  Widget build(BuildContext context) {
+    const steps = ['Placed', 'Approved', 'Shipped', 'Delivered'];
+    final cancelled = order.status == 'cancelled';
+    final at = switch (order.status) {
+      'approved' || 'paid' => 1,
+      'shipped' => 2,
+      'delivered' => 3,
+      _ => 0,
+    };
+    final green = Theme.of(context).colorScheme.primary;
+    final tracking = [order.trackingCourier, order.trackingNo].where((v) => v.isNotEmpty).join(' • ');
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Order progress', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            const SizedBox(height: 12),
+            if (cancelled)
+              const Text('⛔ This order was cancelled.', style: TextStyle(fontWeight: FontWeight.w700))
+            else
+              Row(
+                children: [
+                  for (var i = 0; i < steps.length; i++)
+                    Expanded(
+                      child: Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 13,
+                            backgroundColor: i <= at ? green : Colors.grey.shade300,
+                            child: Icon(i <= at ? Icons.check : Icons.circle, size: i <= at ? 16 : 6, color: Colors.white),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            steps[i],
+                            style: TextStyle(fontSize: 12, fontWeight: i == at ? FontWeight.w800 : FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            if (tracking.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text('🚚 $tracking', style: const TextStyle(fontWeight: FontWeight.w700)),
+              if (order.trackingNote.isNotEmpty) Text(order.trackingNote, style: Theme.of(context).textTheme.bodySmall),
+            ],
+            if (order.timeline.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              for (final e in order.timeline.reversed)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(e['icon'] ?? ''),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(e['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
+                            Text(
+                              '${e['at'] ?? ''}${(e['detail'] ?? '').isEmpty ? '' : ' • ${e['detail']}'}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
