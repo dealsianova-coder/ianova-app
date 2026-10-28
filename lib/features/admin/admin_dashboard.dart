@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/format/money.dart';
 import 'admin_api.dart';
+import 'admin_dark.dart';
 import 'admin_orders.dart';
 import 'admin_products.dart';
 import 'admin_ui.dart';
@@ -83,7 +84,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ['🏷️', 'Categories', '${aInt(c['categories'])}', '', 'categories'],
       ['🏪', 'Sellers', '${aInt(c['sellers'])}', pendingSellers > 0 ? '$pendingSellers to approve' : '', 'sellers'],
       ['👥', 'Users', '${aInt(c['users'])}', '', 'users'],
-      ['💰', 'Confirmed revenue', formatKsh(aNum(c['revenue'])), '', 'orders'],
     ];
 
     final attention = <List<dynamic>>[
@@ -105,6 +105,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       attentionTotal += a[2] as int;
     }
 
+    tiles.add(['🔔', 'Needs attention', '$attentionTotal', attentionTotal > 0 ? 'open orders' : 'all clear', 'orders']);
+
     final main = aMap(data['main']);
     final sellersOrders = aMap(data['sellers_orders']);
     final groups = aList(sellersOrders['groups']);
@@ -124,13 +126,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          _Hero(
+            revenue: formatKsh(aNum(c['revenue'])),
+            orders: aInt(c['orders']),
+            pending: pendingOrders,
+            attention: attentionTotal,
+            onTap: () => _go('orders'),
+          ),
+          const SizedBox(height: 14),
           GridView.count(
             crossAxisCount: 2,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 1.25,
+            childAspectRatio: 1.3,
             children: [
               for (final t in tiles)
                 _Tile(
@@ -144,21 +154,59 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const SizedBox(height: 16),
           AdminCard(
+            padding: EdgeInsets.zero,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  attentionTotal > 0 ? '👀 Needs your attention' : '✅ All caught up',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 10),
-                for (final a in attention)
-                  _AttentionRow(
-                    icon: a[0] as String,
-                    label: a[1] as String,
-                    count: a[2] as int,
-                    onTap: () => _go(a[3] as String, a[4] as Map<String, String>),
+                AdminKeepColors(
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                    decoration: const BoxDecoration(gradient: AC.blackGrad),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            attentionTotal > 0 ? '👀 Needs your attention' : '✅ All caught up',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        if (attentionTotal > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                            decoration: BoxDecoration(
+                              gradient: AC.goldGrad,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              '$attentionTotal',
+                              style: const TextStyle(
+                                color: Color(0xFF16130C),
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      for (final a in attention)
+                        _AttentionRow(
+                          icon: a[0] as String,
+                          label: a[1] as String,
+                          count: a[2] as int,
+                          onTap: () => _go(a[3] as String, a[4] as Map<String, String>),
+                        ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -459,6 +507,106 @@ String _cap(String value) {
   return value.isEmpty ? value : value[0].toUpperCase() + value.substring(1);
 }
 
+class _Hero extends StatelessWidget {
+  const _Hero({
+    required this.revenue,
+    required this.orders,
+    required this.pending,
+    required this.attention,
+    required this.onTap,
+  });
+
+  final String revenue;
+  final int orders;
+  final int pending;
+  final int attention;
+  final VoidCallback onTap;
+
+  Widget _pill(String t) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: AC.gold2.withValues(alpha: 0.45)),
+        ),
+        child: Text(
+          t,
+          style: const TextStyle(color: Color(0xFFF6E3A6), fontSize: 12, fontWeight: FontWeight.w800),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return AdminKeepColors(
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              gradient: AC.blackGrad,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 14, offset: Offset(0, 6))],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(height: 4, decoration: const BoxDecoration(gradient: AC.goldGrad)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '💰 CONFIRMED REVENUE',
+                        style: TextStyle(
+                          color: Color(0xFFD9B45A),
+                          fontSize: 12,
+                          letterSpacing: 1.2,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: ShaderMask(
+                          shaderCallback: (r) => AC.goldGrad.createShader(r),
+                          child: Text(
+                            revenue,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 34,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _pill('🛒 $orders orders'),
+                          _pill('⏳ $pending pending'),
+                          _pill(attention > 0 ? '👀 $attention to check' : '✅ all clear'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Tile extends StatelessWidget {
   const _Tile({
     required this.icon,
@@ -478,40 +626,69 @@ class _Tile extends StatelessWidget {
   Widget build(BuildContext context) {
     return AdminCard(
       margin: EdgeInsets.zero,
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.zero,
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(icon, style: const TextStyle(fontSize: 22)),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: AC.muted, fontSize: 13)),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900),
+          Container(height: 3, decoration: const BoxDecoration(gradient: AC.goldGrad)),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(color: AC.goldTint, shape: BoxShape.circle),
+                        child: Text(icon, style: const TextStyle(fontSize: 18)),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: AC.muted, fontSize: 13, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      value,
+                      style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: AC.ink),
+                    ),
+                  ),
+                  if (sub.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        gradient: AC.goldGrad,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        sub,
+                        style: const TextStyle(
+                          color: Color(0xFF16130C),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
-          if (sub.isNotEmpty)
-            Container(
-              margin: const EdgeInsets.only(top: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: AC.warnBg,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                sub,
-                style: const TextStyle(
-                  color: AC.warnFg,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -533,24 +710,58 @@ class _AttentionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hot = count > 0;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: count > 0 ? AC.warnBg : AC.soft,
+        color: hot ? AC.goldTint : AC.soft,
         borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: IntrinsicHeight(
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(icon),
-                const SizedBox(width: 10),
-                Expanded(child: Text(label)),
-                Text(
-                  '$count',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                Container(width: 4, color: hot ? AC.gold2 : Colors.transparent),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                    child: Row(
+                      children: [
+                        Text(icon),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontWeight: hot ? FontWeight.w800 : FontWeight.w500,
+                              color: hot ? AC.ink : AC.muted,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          constraints: const BoxConstraints(minWidth: 30),
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            gradient: hot ? AC.goldGrad : null,
+                            color: hot ? null : AC.naBg,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            '$count',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              color: hot ? const Color(0xFF16130C) : AC.muted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),

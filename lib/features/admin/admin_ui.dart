@@ -9,8 +9,22 @@ import 'admin_dark.dart';
 /// Colours of the website admin, so the app looks the same.
 class AC {
   static const bg = Color(0xFFF5F7F6);
-  static const side = Color(0xFF17352C);
-  static const side2 = Color(0xFF285445);
+  static const side = Color(0xFF16130C);
+  static const side2 = Color(0xFF2A2417);
+  static const gold1 = Color(0xFF9C600C);
+  static const gold2 = Color(0xFFE4B43C);
+  static const gold3 = Color(0xFFF2C94C);
+  static const goldTint = Color(0xFFFFF6DC);
+  static const goldGrad = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [gold1, gold2, gold3],
+  );
+  static const blackGrad = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF0D0B07), Color(0xFF2A2417)],
+  );
   static const ink = Color(0xFF17231E);
   static const muted = Color(0xFF6B7973);
   static const line = Color(0xFFDCE4DF);
