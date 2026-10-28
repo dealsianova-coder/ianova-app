@@ -78,14 +78,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final reviewProducts = aInt(c['review_products']);
     final pendingSellers = aInt(c['pending_sellers']);
 
-    final tiles = <List<String>>[
-      ['🛒', 'Orders', '${aInt(c['orders'])}', pendingOrders > 0 ? '$pendingOrders pending' : '', 'orders'],
-      ['📦', 'Products', '${aInt(c['products'])}', reviewProducts > 0 ? '$reviewProducts to review' : '', 'products'],
-      ['🏷️', 'Categories', '${aInt(c['categories'])}', '', 'categories'],
-      ['🏪', 'Sellers', '${aInt(c['sellers'])}', pendingSellers > 0 ? '$pendingSellers to approve' : '', 'sellers'],
-      ['👥', 'Users', '${aInt(c['users'])}', '', 'users'],
-    ];
-
     final attention = <List<dynamic>>[
       ['🛒', 'Pending orders', pendingOrders, 'orders', <String, String>{'status': 'pending'}],
       ['⏳', 'Products to review', reviewProducts, 'products', <String, String>{'status': 'pending'}],
@@ -104,8 +96,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     for (final a in attention) {
       attentionTotal += a[2] as int;
     }
-
-    tiles.add(['🔔', 'Needs attention', '$attentionTotal', attentionTotal > 0 ? 'open orders' : 'all clear', 'orders']);
 
     final main = aMap(data['main']);
     final sellersOrders = aMap(data['sellers_orders']);
@@ -126,33 +116,94 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _Hero(
+          _Welcome(onTap: () => _go('analytics')),
+          _KpiGrid(
             revenue: formatKsh(aNum(c['revenue'])),
             orders: aInt(c['orders']),
-            pending: pendingOrders,
-            attention: attentionTotal,
-            onTap: () => _go('orders'),
+            products: aInt(c['products']),
+            customers: aInt(c['users']),
+            trends: aMap(data['trends']),
+            onGo: _go,
           ),
-          const SizedBox(height: 14),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.3,
-            children: [
-              for (final t in tiles)
-                _Tile(
-                  icon: t[0],
-                  label: t[1],
-                  value: t[2],
-                  sub: t[3],
-                  onTap: () => _go(t[4]),
+          _SalesCard(sales: aMap(data['sales']), onTap: () => _go('analytics')),
+          AdminCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Quick Actions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                const Text('Manage your store with ease.', style: TextStyle(color: AC.muted, fontSize: 13)),
+                const SizedBox(height: 12),
+                GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: 1.9,
+                  children: [
+                    _QuickAction(
+                      icon: Icons.add_box_outlined,
+                      title: 'Add Product',
+                      sub: 'Create new product',
+                      bg: const Color(0xFFFFF6E3),
+                      fg: AC.gold,
+                      onTap: () async {
+                        await adminPush(context, const AdminProductEditPage());
+                        _load();
+                      },
+                    ),
+                    _QuickAction(
+                      icon: Icons.shopping_cart_outlined,
+                      title: 'Manage Orders',
+                      sub: 'View and process orders',
+                      bg: const Color(0xFFEAF3FF),
+                      fg: const Color(0xFF2F80ED),
+                      onTap: () => _go('orders'),
+                    ),
+                    _QuickAction(
+                      icon: Icons.storefront_outlined,
+                      title: 'Manage Sellers',
+                      sub: 'Control seller accounts',
+                      bg: const Color(0xFFF3EBFF),
+                      fg: const Color(0xFF8B3DFF),
+                      onTap: () => _go('sellers'),
+                    ),
+                    _QuickAction(
+                      icon: Icons.settings_outlined,
+                      title: 'Store Settings',
+                      sub: 'Configure your store',
+                      bg: const Color(0xFFE8F7EE),
+                      fg: const Color(0xFF16A34A),
+                      onTap: () => _go('settings'),
+                    ),
+                  ],
                 ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
+          AdminCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text('Recent Orders', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                    ),
+                    TextButton(onPressed: () => _go('orders'), child: const Text('View all ›')),
+                  ],
+                ),
+                const Text('Latest orders from your customers', style: TextStyle(color: AC.muted, fontSize: 13)),
+                const SizedBox(height: 8),
+                if (aList(data['latest_orders']).isEmpty) const AdminMuted('No orders yet.'),
+                for (final o in aList(data['latest_orders']))
+                  _RecentOrderRow(
+                    order: aMap(o),
+                    onTap: () => _go('orders'),
+                  ),
+              ],
+            ),
+          ),
           AdminCard(
             padding: EdgeInsets.zero,
             child: Column(
@@ -209,23 +260,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
               ],
             ),
-          ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              AdminButton(
-                '+ Add product',
-                onPressed: () async {
-                  await adminPush(context, const AdminProductEditPage());
-                  _load();
-                },
-              ),
-              AdminButton('+ Category', kind: 'gray', onPressed: () => _go('categories')),
-              AdminButton('⚡ Flash deals', kind: 'gray', onPressed: () => _go('flash')),
-              AdminButton('🖼️ Banners', kind: 'gray', onPressed: () => _go('banners')),
-              AdminButton('⚙️ Settings', kind: 'gray', onPressed: () => _go('settings')),
-            ],
           ),
           // ------------------------------------------------ orders
           AdminHeading(
@@ -507,99 +541,204 @@ String _cap(String value) {
   return value.isEmpty ? value : value[0].toUpperCase() + value.substring(1);
 }
 
-class _Hero extends StatelessWidget {
-  const _Hero({
+class _Welcome extends StatelessWidget {
+  const _Welcome({required this.onTap});
+
+  final VoidCallback onTap;
+
+  static const _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  @override
+  Widget build(BuildContext context) {
+    final n = DateTime.now();
+    final hh = n.hour % 12 == 0 ? 12 : n.hour % 12;
+    final mm = n.minute.toString().padLeft(2, '0');
+    final ap = n.hour >= 12 ? 'PM' : 'AM';
+
+    return AdminCard(
+      color: const Color(0xFFFFF6E3),
+      onTap: onTap,
+      child: Row(
+        children: [
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Welcome back, Admin!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                SizedBox(height: 2),
+                Text("Here's what's happening with your store today.",
+                    style: TextStyle(color: AC.muted, fontSize: 13)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const Icon(Icons.calendar_month_outlined, color: AC.gold, size: 22),
+              Text(
+                '${_days[n.weekday - 1]}, ${_months[n.month - 1]} ${n.day}',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+              ),
+              Text('$hh:$mm $ap', style: const TextStyle(fontSize: 12, color: AC.muted)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _KpiGrid extends StatelessWidget {
+  const _KpiGrid({
     required this.revenue,
     required this.orders,
-    required this.pending,
-    required this.attention,
-    required this.onTap,
+    required this.products,
+    required this.customers,
+    required this.trends,
+    required this.onGo,
   });
 
   final String revenue;
   final int orders;
-  final int pending;
-  final int attention;
-  final VoidCallback onTap;
-
-  Widget _pill(String t) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: AC.gold2.withValues(alpha: 0.45)),
-        ),
-        child: Text(
-          t,
-          style: const TextStyle(color: Color(0xFFF6E3A6), fontSize: 12, fontWeight: FontWeight.w800),
-        ),
-      );
+  final int products;
+  final int customers;
+  final Map<String, dynamic> trends;
+  final void Function(String) onGo;
 
   @override
   Widget build(BuildContext context) {
-    return AdminKeepColors(
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Container(
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              gradient: AC.blackGrad,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 14, offset: Offset(0, 6))],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(height: 4, decoration: const BoxDecoration(gradient: AC.goldGrad)),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '💰 CONFIRMED REVENUE',
-                        style: TextStyle(
-                          color: Color(0xFFD9B45A),
-                          fontSize: 12,
-                          letterSpacing: 1.2,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: ShaderMask(
-                          shaderCallback: (r) => AC.goldGrad.createShader(r),
-                          child: Text(
-                            revenue,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 34,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _pill('🛒 $orders orders'),
-                          _pill('⏳ $pending pending'),
-                          _pill(attention > 0 ? '👀 $attention to check' : '✅ all clear'),
-                        ],
-                      ),
-                    ],
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.45,
+      padding: const EdgeInsets.only(bottom: 12),
+      children: [
+        _Kpi(
+          icon: Icons.account_balance_wallet_outlined,
+          label: 'Total Revenue',
+          value: revenue,
+          trend: trends['revenue'],
+          bg: const Color(0xFFFFF6E3),
+          fg: AC.gold,
+          onTap: () => onGo('orders'),
+        ),
+        _Kpi(
+          icon: Icons.shopping_cart_outlined,
+          label: 'Total Orders',
+          value: '$orders',
+          trend: trends['orders'],
+          bg: const Color(0xFFEAF3FF),
+          fg: const Color(0xFF2F80ED),
+          onTap: () => onGo('orders'),
+        ),
+        _Kpi(
+          icon: Icons.inventory_2_outlined,
+          label: 'Total Products',
+          value: '$products',
+          trend: trends['products'],
+          bg: const Color(0xFFF3EBFF),
+          fg: const Color(0xFF8B3DFF),
+          onTap: () => onGo('products'),
+        ),
+        _Kpi(
+          icon: Icons.groups_outlined,
+          label: 'Total Customers',
+          value: '$customers',
+          trend: trends['users'],
+          bg: const Color(0xFFE8F7EE),
+          fg: const Color(0xFF16A34A),
+          onTap: () => onGo('users'),
+        ),
+      ],
+    );
+  }
+}
+
+class _Kpi extends StatelessWidget {
+  const _Kpi({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.trend,
+    required this.bg,
+    required this.fg,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final dynamic trend;
+  final Color bg;
+  final Color fg;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = trend == null ? null : aNum(trend).toDouble();
+    final up = t != null && t >= 0;
+    final tText = t == null ? 'no change data' : '${up ? '↑' : '↓'} ${t.abs().toStringAsFixed(t.abs() >= 10 ? 0 : 1)}%';
+
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(color: fg, borderRadius: BorderRadius.circular(10)),
+                    child: Icon(icon, color: Colors.white, size: 21),
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AC.ink)),
+              ),
+              Row(
+                children: [
+                  Text(
+                    tText,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w900,
+                      color: t == null ? AC.muted : (up ? AC.okFg : AC.red),
+                    ),
+                  ),
+                  if (t != null)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 6),
+                      child: Text('vs last 7 days', style: TextStyle(fontSize: 11, color: AC.muted)),
+                    ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -607,89 +746,312 @@ class _Hero extends StatelessWidget {
   }
 }
 
-class _Tile extends StatelessWidget {
-  const _Tile({
+class _SalesCard extends StatefulWidget {
+  const _SalesCard({required this.sales, required this.onTap});
+
+  final Map<String, dynamic> sales;
+  final VoidCallback onTap;
+
+  @override
+  State<_SalesCard> createState() => _SalesCardState();
+}
+
+class _SalesCardState extends State<_SalesCard> {
+  String _range = '7';
+
+  Widget _chip(String key, String text) {
+    final on = _range == key;
+
+    return GestureDetector(
+      onTap: () => setState(() => _range = key),
+      child: Container(
+        margin: const EdgeInsets.only(left: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          gradient: on ? AC.goldGrad : null,
+          color: on ? null : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: on ? AC.gold : AC.line),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+            color: on ? Colors.white : AC.muted,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pts = aList(widget.sales[_range]);
+    final vals = [for (final p in pts) aNum(aMap(p)['total']).toDouble()];
+    final labels = [
+      for (final p in pts)
+        () {
+          final d = aStr(aMap(p)['d']);
+          return d.length >= 10 ? '${d.substring(8, 10)}/${d.substring(5, 7)}' : d;
+        }()
+    ];
+
+    return AdminCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text('Sales Overview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              ),
+              _chip('7', '7 Days'),
+              _chip('30', '30 Days'),
+            ],
+          ),
+          Text(
+            'Revenue trend (last $_range days)',
+            style: const TextStyle(color: AC.muted, fontSize: 13),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 170,
+            child: vals.isEmpty
+                ? const Center(child: AdminMuted('No sales yet.'))
+                : GestureDetector(
+                    onTap: widget.onTap,
+                    child: CustomPaint(
+                      size: Size.infinite,
+                      painter: _TrendPainter(vals, labels),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrendPainter extends CustomPainter {
+  _TrendPainter(this.vals, this.labels);
+
+  final List<double> vals;
+  final List<String> labels;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const left = 38.0;
+    const bottom = 20.0;
+    final w = size.width - left - 6;
+    final h = size.height - bottom - 6;
+    var maxV = 0.0;
+    for (final v in vals) {
+      if (v > maxV) maxV = v;
+    }
+    if (maxV <= 0) maxV = 1;
+    // nice ceiling
+    final step = maxV / 4;
+    final grid = Paint()
+      ..color = const Color(0xFFE6E9E7)
+      ..strokeWidth = 1;
+
+    for (var i = 0; i <= 4; i++) {
+      final y = 6 + h - h * i / 4;
+      canvas.drawLine(Offset(left, y), Offset(size.width - 6, y), grid);
+      final v = step * i;
+      final t = v >= 1000 ? '${(v / 1000).toStringAsFixed(v >= 10000 ? 0 : 1)}K' : v.toStringAsFixed(0);
+      final tp = TextPainter(
+        text: TextSpan(text: t, style: const TextStyle(fontSize: 10, color: AC.muted)),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(left - tp.width - 4, y - tp.height / 2));
+    }
+
+    final n = vals.length;
+    final pts = <Offset>[
+      for (var i = 0; i < n; i++)
+        Offset(left + (n == 1 ? w / 2 : w * i / (n - 1)), 6 + h - h * (vals[i] / maxV)),
+    ];
+
+    final line = Path()..moveTo(pts.first.dx, pts.first.dy);
+    for (var i = 1; i < pts.length; i++) {
+      final a = pts[i - 1];
+      final b = pts[i];
+      final mx = (a.dx + b.dx) / 2;
+      line.cubicTo(mx, a.dy, mx, b.dy, b.dx, b.dy);
+    }
+
+    final fill = Path.from(line)
+      ..lineTo(pts.last.dx, 6 + h)
+      ..lineTo(pts.first.dx, 6 + h)
+      ..close();
+
+    canvas.drawPath(
+      fill,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x55E4B43C), Color(0x08E4B43C)],
+        ).createShader(Rect.fromLTWH(left, 0, w, h + 6)),
+    );
+    canvas.drawPath(
+      line,
+      Paint()
+        ..color = AC.gold2
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4,
+    );
+
+    final dot = Paint()..color = AC.gold2;
+    final every = n > 10 ? 5 : 1;
+    for (var i = 0; i < n; i++) {
+      if (n <= 10 || i == n - 1) canvas.drawCircle(pts[i], 3.6, dot);
+      if (i % every == 0 || i == n - 1) {
+        final tp = TextPainter(
+          text: TextSpan(text: labels[i], style: const TextStyle(fontSize: 10, color: AC.muted)),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        final x = (pts[i].dx - tp.width / 2).clamp(0.0, size.width - tp.width);
+        tp.paint(canvas, Offset(x, size.height - tp.height));
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_TrendPainter old) => old.vals != vals || old.labels != labels;
+}
+
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({
     required this.icon,
-    required this.label,
-    required this.value,
+    required this.title,
     required this.sub,
+    required this.bg,
+    required this.fg,
     required this.onTap,
   });
 
-  final String icon;
-  final String label;
-  final String value;
+  final IconData icon;
+  final String title;
   final String sub;
+  final Color bg;
+  final Color fg;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return AdminCard(
-      margin: EdgeInsets.zero,
-      padding: EdgeInsets.zero,
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(color: fg, borderRadius: BorderRadius.circular(10)),
+                child: Icon(icon, color: Colors.white, size: 21),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5)),
+                    Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: AC.muted, fontSize: 11.5)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecentOrderRow extends StatelessWidget {
+  const _RecentOrderRow({required this.order, required this.onTap});
+
+  final Map<String, dynamic> order;
+  final VoidCallback onTap;
+
+  static (Color, Color) _col(String s) {
+    switch (s) {
+      case 'paid':
+      case 'delivered':
+        return (const Color(0xFFE1F3E8), const Color(0xFF166534));
+      case 'pending':
+        return (const Color(0xFFFFF0CC), const Color(0xFF92600A));
+      case 'processing':
+      case 'confirmed':
+        return (const Color(0xFFE3EEFF), const Color(0xFF1F5FBF));
+      case 'shipped':
+        return (const Color(0xFFF0E6FF), const Color(0xFF6B2FCC));
+      case 'cancelled':
+        return (const Color(0xFFFBE4E4), const Color(0xFFB83B3B));
+      default:
+        return (AC.naBg, AC.naFg);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final st = aStr(order['status']);
+    final (bg, fg) = _col(st);
+    final d = aStr(order['created_at']);
+
+    return InkWell(
       onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(height: 3, decoration: const BoxDecoration(gradient: AC.goldGrad)),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: const BoxDecoration(border: Border(top: BorderSide(color: AC.line))),
+        child: Row(
+          children: [
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        alignment: Alignment.center,
-                        decoration: const BoxDecoration(color: AC.goldTint, shape: BoxShape.circle),
-                        child: Text(icon, style: const TextStyle(fontSize: 18)),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: AC.muted, fontSize: 13, fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ],
+                  Text(
+                    '#IAN-${aInt(order['id']).toString().padLeft(4, '0')}  ${aStr(order['customer'])}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
                   ),
-                  const SizedBox(height: 6),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      value,
-                      style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: AC.ink),
-                    ),
+                  Text(
+                    d.length >= 10 ? d.substring(0, 10) : d,
+                    style: const TextStyle(color: AC.muted, fontSize: 11.5),
                   ),
-                  if (sub.isNotEmpty)
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        gradient: AC.goldGrad,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        sub,
-                        style: const TextStyle(
-                          color: Color(0xFF16130C),
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
-          ),
-        ],
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(formatKsh(aNum(order['total'])), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+                Container(
+                  margin: const EdgeInsets.only(top: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
+                  decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+                  child: Text(
+                    st.isEmpty ? '' : st[0].toUpperCase() + st.substring(1),
+                    style: TextStyle(color: fg, fontSize: 11.5, fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+            ),
+            const Icon(Icons.chevron_right, color: AC.muted, size: 20),
+          ],
+        ),
       ),
     );
   }

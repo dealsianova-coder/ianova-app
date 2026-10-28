@@ -67,6 +67,7 @@ class _AdminPageState extends State<AdminPage> {
     _NavItem('alerts', '🔔', 'Alerts', 'alerts'),
   ];
 
+  final GlobalKey<ScaffoldState> _sk = GlobalKey<ScaffoldState>();
   bool? _signedIn;
   String _page = 'dashboard';
   Map<String, String> _args = <String, String>{};
@@ -263,6 +264,59 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
+  Widget _bottomBar() {
+    const tabs = <(String, String, IconData)>[
+      ('dashboard', 'Dashboard', Icons.dashboard_rounded),
+      ('products', 'Products', Icons.inventory_2_outlined),
+      ('orders', 'Orders', Icons.shopping_cart_outlined),
+      ('users', 'Customers', Icons.groups_outlined),
+    ];
+
+    Widget item(IconData icon, String label, bool on, VoidCallback tap) {
+      return Expanded(
+        child: InkWell(
+          onTap: tap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 24, color: on ? AC.gold : AC.muted),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: on ? FontWeight.w900 : FontWeight.w600,
+                    color: on ? AC.gold : AC.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final main = tabs.any((t) => t.$1 == _page);
+
+    return Material(
+      color: Colors.white,
+      elevation: 10,
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            for (final t in tabs)
+              if (_can(t.$1)) item(t.$3, t.$2, _page == t.$1, () => _go(t.$1)),
+            item(Icons.more_horiz, 'More', !main, () => _sk.currentState?.openDrawer()),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -296,6 +350,8 @@ class _AdminPageState extends State<AdminPage> {
     final alerts = _counts['alerts'] ?? 0;
 
     return Scaffold(
+      key: _sk,
+      bottomNavigationBar: _bottomBar(),
       appBar: AdminKeepBar(AppBar(
         title: Text(_title),
         actions: [
