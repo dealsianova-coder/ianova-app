@@ -109,6 +109,19 @@ class _AdminTeamScreenState extends State<AdminTeamScreen> with AdminLoad<AdminT
     }
   }
 
+  Future<void> _setIdle(int minutes) async {
+    final v = await _askSecrets('Automatic sign-out', 'Enter your security password to save.', ['🔒 Security password']);
+
+    if (v == null || !mounted) return;
+
+    final ok = await adminTry(context, () => AdminApi.instance.panel('team_idle_set', body: {'minutes': minutes, 'security_password': v[0]}));
+
+    if (ok) {
+      adminSay(context, 'Saved.');
+      load();
+    }
+  }
+
   /// Checklist of sections. Returns the chosen keys, or null if cancelled.
   Future<List<String>?> _pickAccess(String title, List<Map<String, dynamic>> sections, List<String> start) async {
     final on = <String>{...start};
@@ -310,6 +323,30 @@ class _AdminTeamScreenState extends State<AdminTeamScreen> with AdminLoad<AdminT
             const AdminMuted('The master admin adds admins, approves them and chooses what each one can see.'),
             const SizedBox(height: 14),
             for (final a in admins) _adminCard(a, me, iAmMaster, hasSec, sections),
+            if (iAmMaster && hasSec)
+              AdminCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('⏱️ Automatic sign-out', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 4),
+                    const AdminMuted('Admins are signed out (website and Admin app) after this long without activity. Applies to every admin.'),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final c in aList(d['idle_choices']))
+                          ChoiceChip(
+                            label: Text(aStr(c['label'])),
+                            selected: aInt(c['min']) == aInt(d['idle_min']),
+                            onSelected: (_) => _setIdle(aInt(c['min'])),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             AdminCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
