@@ -625,7 +625,7 @@ class _KpiGrid extends StatelessWidget {
           trend: trends['revenue'],
           bg: const Color(0xFFFFF6E3),
           fg: AC.gold,
-          onTap: () => onGo('orders'),
+          onTap: () => onGo('revenue'),
         ),
         _Kpi(
           icon: Icons.shopping_cart_outlined,

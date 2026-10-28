@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/config/api_config.dart';
 import '../../core/network/api_service.dart' show ApiException;
 import '../auth/forgot_password_page.dart';
+import 'admin_revenue.dart';
 import 'admin_analytics.dart';
 import 'admin_api.dart';
 import 'admin_broadcast.dart';
@@ -44,6 +45,7 @@ class _AdminPageState extends State<AdminPage> {
   static const _items = <_NavItem>[
     _NavItem('dashboard', '📊', 'Dashboard'),
     _NavItem('analytics', '📈', 'Analytics'),
+    _NavItem('revenue', '💰', 'Revenue'),
     _NavItem('products', '📦', 'Products', 'review_products'),
     _NavItem('categories', '🏷️', 'Categories'),
     _NavItem('orders', '🛒', 'Orders', 'pending_orders'),
@@ -77,7 +79,7 @@ class _AdminPageState extends State<AdminPage> {
   List<String>? _allowed;
   bool _master = false;
 
-  bool _can(String key) => key == 'admins' || (key == 'activity' ? _master : (_allowed == null || _allowed!.contains(key)));
+  bool _can(String key) => key == 'revenue' ? _can('dashboard') : key == 'admins' || (key == 'activity' ? _master : (_allowed == null || _allowed!.contains(key)));
 
   @override
   void initState() {
@@ -239,6 +241,8 @@ class _AdminPageState extends State<AdminPage> {
         return const AdminBannersScreen();
       case 'analytics':
         return AdminAnalyticsScreen(onGo: _go);
+      case 'revenue':
+        return AdminRevenueScreen(onGo: _go);
       case 'email':
         return const AdminEmailScreen();
       case 'video':
