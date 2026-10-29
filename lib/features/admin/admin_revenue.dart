@@ -5,6 +5,37 @@ import 'admin_api.dart';
 import 'admin_dashboard.dart' show AdminGo;
 import 'admin_ui.dart';
 
+Future<List<String>?> adminAsk(BuildContext context, String title, String note, List<String> labels, {List<bool> secret = const []}) async {
+  final ctrls = [for (final _ in labels) TextEditingController()];
+
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (note.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 12), child: AdminMuted(note)),
+            for (int i = 0; i < labels.length; i++)
+              AdminField(label: labels[i], controller: ctrls[i], obscure: i < secret.length ? secret[i] : true),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Confirm')),
+      ],
+    ),
+  );
+
+  final vals = [for (final c in ctrls) c.text.trim()];
+
+  return ok == true ? vals : null;
+}
+
 /// Revenue breakdown (where it came from), start revenue over (30 days to restore) and delete test orders (recycle bin).
 class AdminRevenueScreen extends StatefulWidget {
   const AdminRevenueScreen({super.key, required this.onGo});
@@ -33,43 +64,8 @@ class _AdminRevenueScreenState extends State<AdminRevenueScreen> with AdminLoad<
     load();
   }
 
-  Future<List<String>?> _ask(String title, String note, List<String> labels, {List<bool> secret = const []}) async {
-    final ctrls = [for (final _ in labels) TextEditingController()];
-
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (note.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 12), child: AdminMuted(note)),
-              for (int i = 0; i < labels.length; i++)
-                AdminField(label: labels[i], controller: ctrls[i], obscure: i < secret.length ? secret[i] : true),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Confirm')),
-        ],
-      ),
-    );
-
-    final vals = [for (final c in ctrls) c.text.trim()];
-
-    for (final c in ctrls) {
-      c.dispose();
-    }
-
-    return ok == true ? vals : null;
-  }
-
   Future<void> _reset() async {
-    final v = await _ask(
+    final v = await adminAsk(context, 
       'Start revenue over',
       'Revenue goes back to zero from now. Your orders are not touched. The old figures are archived and can be restored for 30 days, then permanently deleted.',
       ['Note (optional)', 'Type RESET', '🔒 Security password'],
@@ -84,26 +80,12 @@ class _AdminRevenueScreenState extends State<AdminRevenueScreen> with AdminLoad<
     );
 
     if (ok && mounted) {
-      adminSay(context, 'Revenue started over. Old figures are kept for 30 days.');
-      load();
-    }
-  }
-
-  Future<void> _restore(int id) async {
-    final v = await _ask('Restore old revenue', 'Brings the archived revenue back.', ['🔒 Security password']);
-
-    if (v == null || !mounted) return;
-
-    final ok = await adminTry(context, () => AdminApi.instance.panel('revenue_restore_do', body: {'id': id, 'security_password': v[0]}));
-
-    if (ok && mounted) {
-      adminSay(context, 'Revenue restored.');
-      load();
+      await _done('Revenue started over', 'Revenue now counts from this moment and shows KSh 0. The dashboard totals, chart and recent orders start fresh too. Your orders are untouched, and the old figures are in the Trash for 30 days.');
     }
   }
 
   Future<void> _trash(int count) async {
-    final v = await _ask(
+    final v = await adminAsk(context, 
       'Delete test orders',
       'Moves all $count orders (with their items, payments and refunds) to a recycle bin for 30 days, then they are permanently deleted. Customers, products and sellers are not touched.',
       ['Type DELETE', '🔒 Security password'],
@@ -112,25 +94,42 @@ class _AdminRevenueScreenState extends State<AdminRevenueScreen> with AdminLoad<
 
     if (v == null || !mounted) return;
 
-    final ok = await adminTry(context, () => AdminApi.instance.panel('revenue_trash_do', body: {'confirm': v[0], 'security_password': v[1]}));
+    Map<String, dynamic> res = {};
+    final ok = await adminTry(context, () async {
+      res = await AdminApi.instance.panel('revenue_trash_do', body: {'confirm': v[0], 'security_password': v[1]});
+    });
 
     if (ok && mounted) {
-      adminSay(context, 'Orders moved to the recycle bin for 30 days.');
-      load();
+      await _done(
+        'Orders deleted',
+        '${aInt(res['moved_n'])} orders (${formatKsh(aNum(res['moved_total']))}) moved to the Trash for 30 days. Orders left: ${aInt(res['orders_left'])}. Revenue now: ${formatKsh(aNum(res['revenue_now']))}.',
+      );
     }
   }
 
-  Future<void> _trashRestore(int id) async {
-    final v = await _ask('Restore orders', 'Brings these orders back exactly as they were.', ['🔒 Security password']);
+  Future<void> _done(String title, String message) async {
+    await load();
 
-    if (v == null || !mounted) return;
+    if (!mounted) return;
 
-    final ok = await adminTry(context, () => AdminApi.instance.panel('revenue_trash_restore_do', body: {'id': id, 'security_password': v[0]}));
-
-    if (ok && mounted) {
-      adminSay(context, 'Orders restored.');
-      load();
-    }
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text('✅ $title', style: const TextStyle(fontWeight: FontWeight.w900)),
+        content: Text(message),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('OK')),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              widget.onGo('dashboard', <String, String>{});
+            },
+            child: const Text('Open dashboard'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _row(String label, String value, {Color? color, bool bold = false}) {
@@ -348,31 +347,9 @@ class _AdminRevenueScreenState extends State<AdminRevenueScreen> with AdminLoad<
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('🔄 Start revenue over', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-                    const AdminMuted('Revenue goes back to zero from now. Orders are not touched. Old figures are archived for 30 days and can be restored, then permanently deleted.'),
+                    const AdminMuted('Revenue and the dashboard totals go back to zero from now. Orders are not touched. The old figures go to the Trash for 30 days and can be restored.'),
                     const SizedBox(height: 10),
                     AdminButton('Start over', kind: 'red', onPressed: _reset),
-                    for (final x in resets)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('🗂️ ${aStr(aMap(x)['reset_at']).length >= 16 ? aStr(aMap(x)['reset_at']).substring(0, 16) : aStr(aMap(x)['reset_at'])}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                                  AdminMuted(
-                                    aMap(x)['confirmed'] == null
-                                        ? (aMap(x)['restored_at'] != null ? 'Restored' : 'Permanently deleted')
-                                        : 'Archived ${formatKsh(aNum(aMap(x)['confirmed']))} from ${aInt(aMap(x)['orders'])} orders · ${aInt(aMap(x)['days_left'])} days left',
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (aBool(aMap(x)['can_restore'])) AdminButton('Restore', kind: 'gray', small: true, onPressed: () => _restore(aInt(aMap(x)['id']))),
-                          ],
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -382,32 +359,17 @@ class _AdminRevenueScreenState extends State<AdminRevenueScreen> with AdminLoad<
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('🗑️ Delete test orders', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-                    AdminMuted('Moves all ${aInt(ordersNow['n'])} orders (${formatKsh(aNum(ordersNow['total']))}) to a recycle bin for 30 days, then they are permanently deleted. Customers, products and sellers are not touched.'),
+                    AdminMuted('Moves all ${aInt(ordersNow['n'])} orders (${formatKsh(aNum(ordersNow['total']))}) to the Trash for 30 days, then they are permanently deleted. Customers, products and sellers are not touched.'),
                     const SizedBox(height: 10),
                     AdminButton('Delete all orders', kind: 'red', onPressed: aInt(ordersNow['n']) == 0 ? null : () => _trash(aInt(ordersNow['n']))),
-                    for (final x in trash)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('🗑️ ${aInt(aMap(x)['n'])} orders · ${formatKsh(aNum(aMap(x)['total']))}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                                  AdminMuted(
-                                    aBool(aMap(x)['can_restore'])
-                                        ? '${aInt(aMap(x)['days_left'])} days left to restore'
-                                        : (aMap(x)['restored_at'] != null ? 'Restored' : 'Permanently deleted'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (aBool(aMap(x)['can_restore'])) AdminButton('Restore', kind: 'gray', small: true, onPressed: () => _trashRestore(aInt(aMap(x)['id']))),
-                          ],
-                        ),
-                      ),
                   ],
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () => widget.onGo('trash', <String, String>{}),
+                  child: Text('🗑️ Open Trash (${resets.where((x) => aMap(x)['can_restore'] == true).length + trash.where((x) => aMap(x)['can_restore'] == true).length} to restore) ›'),
                 ),
               ),
             ] else

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/format/money.dart';
 import 'admin_api.dart';
 import 'admin_dark.dart';
+import 'admin_dash_custom.dart';
 import 'admin_orders.dart';
 import 'admin_products.dart';
 import 'admin_ui.dart';
@@ -23,11 +25,57 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Map<String, dynamic>? _data;
   String? _error;
   bool _loading = true;
+  String _more = 'orders';
+  bool _hideRev = false;
 
   @override
   void initState() {
     super.initState();
+    _loadHide();
     _load();
+  }
+
+  Future<void> _loadHide() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final v = p.getBool('adm_hide_rev') ?? false;
+
+      if (mounted && v != _hideRev) setState(() => _hideRev = v);
+    } catch (_) {}
+  }
+
+  Future<void> _toggleRev() async {
+    setState(() => _hideRev = !_hideRev);
+
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setBool('adm_hide_rev', _hideRev);
+    } catch (_) {}
+  }
+
+  List<String> get _hidden => [for (final x in aList(aMap(_data?['prefs'])['hide'])) aStr(x)];
+
+  List<String> get _quick {
+    final q = [for (final x in aList(aMap(_data?['prefs'])['quick'])) aStr(x)];
+
+    return q.isEmpty ? <String>['add_product', 'orders', 'sellers', 'settings'] : q;
+  }
+
+  bool _show(String id) => !_hidden.contains(id);
+
+  Future<void> _customize() async {
+    final saved = await adminPush<bool>(context, AdminDashCustomizePage(hidden: _hidden, quick: _quick));
+
+    if (saved == true) _load();
+  }
+
+  Future<void> _quickGo(String id) async {
+    if (id == 'add_product') {
+      await adminPush(context, const AdminProductEditPage());
+      _load();
+    } else {
+      _go(id);
+    }
   }
 
   Future<void> _load() async {
@@ -111,164 +159,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (aInt(cat['n']) > maxCat) maxCat = aInt(cat['n']);
     }
 
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _Welcome(onTap: () => _go('analytics')),
-          _KpiGrid(
-            revenue: formatKsh(aNum(c['revenue'])),
-            orders: aInt(c['orders']),
-            products: aInt(c['products']),
-            customers: aInt(c['users']),
-            trends: aMap(data['trends']),
-            onGo: _go,
-          ),
-          _SalesCard(sales: aMap(data['sales']), onTap: () => _go('analytics')),
-          AdminCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Quick Actions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-                const Text('Manage your store with ease.', style: TextStyle(color: AC.muted, fontSize: 13)),
-                const SizedBox(height: 12),
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 1.9,
-                  children: [
-                    _QuickAction(
-                      icon: Icons.add_box_outlined,
-                      title: 'Add Product',
-                      sub: 'Create new product',
-                      bg: const Color(0xFFFFF6E3),
-                      fg: AC.gold,
-                      onTap: () async {
-                        await adminPush(context, const AdminProductEditPage());
-                        _load();
-                      },
-                    ),
-                    _QuickAction(
-                      icon: Icons.shopping_cart_outlined,
-                      title: 'Manage Orders',
-                      sub: 'View and process orders',
-                      bg: const Color(0xFFEAF3FF),
-                      fg: const Color(0xFF2F80ED),
-                      onTap: () => _go('orders'),
-                    ),
-                    _QuickAction(
-                      icon: Icons.storefront_outlined,
-                      title: 'Manage Sellers',
-                      sub: 'Control seller accounts',
-                      bg: const Color(0xFFF3EBFF),
-                      fg: const Color(0xFF8B3DFF),
-                      onTap: () => _go('sellers'),
-                    ),
-                    _QuickAction(
-                      icon: Icons.settings_outlined,
-                      title: 'Store Settings',
-                      sub: 'Configure your store',
-                      bg: const Color(0xFFE8F7EE),
-                      fg: const Color(0xFF16A34A),
-                      onTap: () => _go('settings'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          AdminCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text('Recent Orders', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-                    ),
-                    TextButton(onPressed: () => _go('orders'), child: const Text('View all ›')),
-                  ],
-                ),
-                const Text('Latest orders from your customers', style: TextStyle(color: AC.muted, fontSize: 13)),
-                const SizedBox(height: 8),
-                if (aList(data['latest_orders']).isEmpty) const AdminMuted('No orders yet.'),
-                for (final o in aList(data['latest_orders']))
-                  _RecentOrderRow(
-                    order: aMap(o),
-                    onTap: () => _go('orders'),
-                  ),
-              ],
-            ),
-          ),
-          AdminCard(
-            padding: EdgeInsets.zero,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AdminKeepColors(
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                    decoration: const BoxDecoration(gradient: AC.blackGrad),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            attentionTotal > 0 ? '👀 Needs your attention' : '✅ All caught up',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                        if (attentionTotal > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                            decoration: BoxDecoration(
-                              gradient: AC.goldGrad,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              '$attentionTotal',
-                              style: const TextStyle(
-                                color: Color(0xFF16130C),
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      for (final a in attention)
-                        _AttentionRow(
-                          icon: a[0] as String,
-                          label: a[1] as String,
-                          count: a[2] as int,
-                          onTap: () => _go(a[3] as String, a[4] as Map<String, String>),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // ------------------------------------------------ orders
-          AdminHeading(
-            '🛒 Orders',
-            trailing: TextButton(
-              onPressed: () => _go('orders'),
-              child: const Text('All orders'),
-            ),
-          ),
+    final panelLabels = <String, String>{'orders': '🛒 Orders', 'products': '📦 Products', 'categories': '🏷️ Categories', 'sellers': '🏪 Sellers', 'users': '👥 Users'};
+    final panelPages = <String, String>{'orders': 'orders', 'products': 'products', 'categories': 'categories', 'sellers': 'sellers', 'users': 'users'};
+    final panels = <String, List<Widget>>{
+      'orders': [
           AdminCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -354,15 +248,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ],
               ],
             ),
-          ),
-          // ------------------------------------------------ products
-          AdminHeading(
-            '📦 Products',
-            trailing: TextButton(
-              onPressed: () => _go('products'),
-              child: const Text('Manage products'),
-            ),
-          ),
+          )
+      ],
+      'products': [
           AdminCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -410,15 +298,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ],
               ],
             ),
-          ),
-          // ------------------------------------------------ categories
-          AdminHeading(
-            '🏷️ Categories',
-            trailing: TextButton(
-              onPressed: () => _go('categories'),
-              child: const Text('Manage categories'),
-            ),
-          ),
+          )
+      ],
+      'categories': [
           AdminCard(
             child: cats.isEmpty
                 ? const AdminMuted('No categories yet.')
@@ -470,15 +352,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                     ],
                   ),
-          ),
-          // ------------------------------------------------ sellers
-          AdminHeading(
-            '🏪 Sellers',
-            trailing: TextButton(
-              onPressed: () => _go('sellers'),
-              child: const Text('Manage sellers'),
-            ),
-          ),
+          )
+      ],
+      'sellers': [
           AdminCard(
             child: Column(
               children: [
@@ -497,15 +373,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
               ],
             ),
-          ),
-          // ------------------------------------------------ users
-          AdminHeading(
-            '👥 Users',
-            trailing: TextButton(
-              onPressed: () => _go('users'),
-              child: const Text('All users'),
-            ),
-          ),
+          )
+      ],
+      'users': [
           AdminCard(
             child: Column(
               children: [
@@ -518,7 +388,134 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
               ],
             ),
+          )
+      ],
+    };
+    final panelKeys = [for (final k in panelLabels.keys) if (_show('more_$k')) k];
+    final panelNow = panelKeys.contains(_more) ? _more : (panelKeys.isEmpty ? '' : panelKeys.first);
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _customize,
+              icon: const Icon(Icons.tune, size: 18),
+              label: const Text('Customize'),
+            ),
           ),
+          if (_show('welcome')) _Welcome(onTap: () => _go('analytics')),
+          _KpiGrid(
+            revenue: formatKsh(aNum(c['revenue'])),
+            orders: aInt(c['orders']),
+            products: aInt(c['products']),
+            customers: aInt(c['users']),
+            trends: aMap(data['trends']),
+            show: {
+              'revenue': _show('kpi_revenue'),
+              'orders': _show('kpi_orders'),
+              'products': _show('kpi_products'),
+              'customers': _show('kpi_customers'),
+            },
+            hideRevenue: _hideRev,
+            onEye: _toggleRev,
+            onGo: _go,
+          ),
+          if (_show('sales')) _SalesCard(sales: aMap(data['sales']), onTap: () => _go('analytics')),
+          if (_show('quick'))
+            AdminCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Quick Actions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                  const Text('Manage your store with ease.', style: TextStyle(color: AC.muted, fontSize: 13)),
+                  const SizedBox(height: 12),
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                    childAspectRatio: 1.9,
+                    children: [
+                      for (var i = 0; i < _quick.length; i++)
+                        if (kQuickActions.containsKey(_quick[i]))
+                          _QuickAction(
+                            icon: kQuickActions[_quick[i]]!.icon,
+                            title: kQuickActions[_quick[i]]!.label,
+                            sub: kQuickActions[_quick[i]]!.sub,
+                            bg: kQuickColors[i % kQuickColors.length][0],
+                            fg: kQuickColors[i % kQuickColors.length][1],
+                            onTap: () => _quickGo(_quick[i]),
+                          ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          if (_show('recent'))
+            AdminCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text('Recent Orders', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                      ),
+                      TextButton(onPressed: () => _go('orders'), child: const Text('View all ›')),
+                    ],
+                  ),
+                  const Text('Latest orders from your customers', style: TextStyle(color: AC.muted, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  if (aList(data['latest_orders']).isEmpty) const AdminMuted('No orders yet.'),
+                  for (final o in aList(data['latest_orders']))
+                    _RecentOrderRow(
+                      order: aMap(o),
+                      onTap: () => _openOrder(aInt(aMap(o)['id']), aStr(aMap(o)['tab']).isEmpty ? 'main' : aStr(aMap(o)['tab'])),
+                    ),
+                ],
+              ),
+            ),
+          if (_show('attention'))
+            _AttentionCard(
+              items: attention,
+              total: attentionTotal,
+              onGo: (page, args) => _go(page, args),
+            ),
+          // ------------------------------------------------ more panels (one at a time)
+          if (panelKeys.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final k in panelKeys)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(panelLabels[k]!),
+                          selected: panelNow == k,
+                          onSelected: (_) => setState(() => _more = k),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => _go(panelPages[panelNow]!),
+                child: Text('Open ${panelLabels[panelNow]!.substring(2).toLowerCase()} ›'),
+              ),
+            ),
+            ...panels[panelNow]!,
+          ],
           const SizedBox(height: 24),
         ],
       ),
@@ -597,6 +594,9 @@ class _KpiGrid extends StatelessWidget {
     required this.products,
     required this.customers,
     required this.trends,
+    required this.show,
+    required this.hideRevenue,
+    required this.onEye,
     required this.onGo,
   });
 
@@ -605,28 +605,28 @@ class _KpiGrid extends StatelessWidget {
   final int products;
   final int customers;
   final Map<String, dynamic> trends;
+  final Map<String, bool> show;
+  final bool hideRevenue;
+  final VoidCallback onEye;
   final void Function(String) onGo;
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.45,
-      padding: const EdgeInsets.only(bottom: 12),
-      children: [
+    final cards = <Widget>[
+      if (show['revenue'] ?? true)
         _Kpi(
           icon: Icons.account_balance_wallet_outlined,
           label: 'Total Revenue',
-          value: revenue,
-          trend: trends['revenue'],
+          value: hideRevenue ? 'KSh ••••••' : revenue,
+          trend: hideRevenue ? null : trends['revenue'],
+          hideTrend: hideRevenue,
           bg: const Color(0xFFFFF6E3),
           fg: AC.gold,
           onTap: () => onGo('revenue'),
+          eye: hideRevenue ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+          onEye: onEye,
         ),
+      if (show['orders'] ?? true)
         _Kpi(
           icon: Icons.shopping_cart_outlined,
           label: 'Total Orders',
@@ -636,6 +636,7 @@ class _KpiGrid extends StatelessWidget {
           fg: const Color(0xFF2F80ED),
           onTap: () => onGo('orders'),
         ),
+      if (show['products'] ?? true)
         _Kpi(
           icon: Icons.inventory_2_outlined,
           label: 'Total Products',
@@ -645,6 +646,7 @@ class _KpiGrid extends StatelessWidget {
           fg: const Color(0xFF8B3DFF),
           onTap: () => onGo('products'),
         ),
+      if (show['customers'] ?? true)
         _Kpi(
           icon: Icons.groups_outlined,
           label: 'Total Customers',
@@ -654,7 +656,19 @@ class _KpiGrid extends StatelessWidget {
           fg: const Color(0xFF16A34A),
           onTap: () => onGo('users'),
         ),
-      ],
+    ];
+
+    if (cards.isEmpty) return const SizedBox.shrink();
+
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.45,
+      padding: const EdgeInsets.only(bottom: 12),
+      children: cards,
     );
   }
 }
@@ -668,6 +682,9 @@ class _Kpi extends StatelessWidget {
     required this.bg,
     required this.fg,
     required this.onTap,
+    this.hideTrend = false,
+    this.eye,
+    this.onEye,
   });
 
   final IconData icon;
@@ -677,12 +694,17 @@ class _Kpi extends StatelessWidget {
   final Color bg;
   final Color fg;
   final VoidCallback onTap;
+  final bool hideTrend;
+  final IconData? eye;
+  final VoidCallback? onEye;
 
   @override
   Widget build(BuildContext context) {
     final t = trend == null ? null : aNum(trend).toDouble();
     final up = t != null && t >= 0;
-    final tText = t == null ? 'no change data' : '${up ? '↑' : '↓'} ${t.abs().toStringAsFixed(t.abs() >= 10 ? 0 : 1)}%';
+    final tText = hideTrend
+        ? 'tap the eye to show'
+        : (t == null ? 'no change data' : '${up ? '↑' : '↓'} ${t.abs().toStringAsFixed(t.abs() >= 10 ? 0 : 1)}%');
 
     return Material(
       color: bg,
@@ -713,6 +735,15 @@ class _Kpi extends StatelessWidget {
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                     ),
                   ),
+                  if (eye != null)
+                    InkResponse(
+                      onTap: onEye,
+                      radius: 20,
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(eye, size: 20, color: AC.muted),
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(height: 6),
@@ -728,10 +759,10 @@ class _Kpi extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w900,
-                      color: t == null ? AC.muted : (up ? AC.okFg : AC.red),
+                      color: (t == null || hideTrend) ? AC.muted : (up ? AC.okFg : AC.red),
                     ),
                   ),
-                  if (t != null)
+                  if (t != null && !hideTrend)
                     const Padding(
                       padding: EdgeInsets.only(left: 6),
                       child: Text('vs last 7 days', style: TextStyle(fontSize: 11, color: AC.muted)),
@@ -741,6 +772,126 @@ class _Kpi extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AttentionCard extends StatefulWidget {
+  const _AttentionCard({required this.items, required this.total, required this.onGo});
+
+  final List<List<dynamic>> items;
+  final int total;
+  final void Function(String page, Map<String, String> args) onGo;
+
+  @override
+  State<_AttentionCard> createState() => _AttentionCardState();
+}
+
+class _AttentionCardState extends State<_AttentionCard> {
+  bool _clear = false;
+
+  // positions in the list built by the dashboard
+  static const _groups = <List<dynamic>>[
+    ['🛒 Orders', <int>[0, 6, 7]],
+    ['📦 Products & stock', <int>[1, 5]],
+    ['🏪 Sellers', <int>[2, 3, 9]],
+    ['💰 Money', <int>[8]],
+    ['⚙️ System', <int>[4, 10]],
+  ];
+
+  Widget _row(List<dynamic> a) {
+    return _AttentionRow(
+      icon: a[0] as String,
+      label: a[1] as String,
+      count: a[2] as int,
+      onTap: () => widget.onGo(a[3] as String, a[4] as Map<String, String>),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = widget.items;
+    final clearRows = <List<dynamic>>[];
+    final hotGroups = <List<List<dynamic>>>[];
+
+    for (final g in _groups) {
+      final hot = <List<dynamic>>[];
+
+      for (final i in g[1] as List<int>) {
+        if (i >= items.length) continue;
+
+        if ((items[i][2] as int) > 0) {
+          hot.add(items[i]);
+        } else {
+          clearRows.add(items[i]);
+        }
+      }
+
+      hotGroups.add(hot);
+    }
+
+    return AdminCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AdminKeepColors(
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              decoration: const BoxDecoration(gradient: AC.blackGrad),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.total > 0 ? '👀 Needs your attention' : '✅ All caught up',
+                      style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                  if (widget.total > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(gradient: AC.goldGrad, borderRadius: BorderRadius.circular(999)),
+                      child: Text(
+                        '${widget.total}',
+                        style: const TextStyle(color: Color(0xFF16130C), fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var gi = 0; gi < _groups.length; gi++)
+                  if (hotGroups[gi].isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 6, left: 2),
+                      child: Text(
+                        _groups[gi][0] as String,
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: AC.muted, letterSpacing: 0.4),
+                      ),
+                    ),
+                    for (final a in hotGroups[gi]) _row(a),
+                  ],
+                if (widget.total == 0)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 6),
+                    child: AdminMuted('Nothing needs your action right now. 🎉'),
+                  ),
+                if (clearRows.isNotEmpty)
+                  TextButton(
+                    onPressed: () => setState(() => _clear = !_clear),
+                    child: Text(_clear ? 'Hide ${clearRows.length} clear items ▴' : 'Show ${clearRows.length} clear items ▾'),
+                  ),
+                if (_clear) for (final a in clearRows) _row(a),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import 'admin_api.dart';
 import 'admin_extras.dart';
+import 'admin_orders.dart';
+import 'admin_products.dart';
 import 'admin_ui.dart';
 
 // ------------------------------------------------------------------ store control
@@ -325,6 +327,24 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> with AdminLoad<Ad
     if (!mounted) return;
 
     final sellerId = aInt(a['seller_id']);
+    final link = Uri.tryParse(aStr(a['link']));
+    final file = link == null ? '' : (link.pathSegments.isEmpty ? '' : link.pathSegments.last);
+    final target = int.tryParse(link?.queryParameters['id'] ?? '') ?? 0;
+
+    if (file == 'order_view.php' && target > 0) {
+      await adminPush(
+        context,
+        AdminOrderViewPage(id: target, tab: link?.queryParameters['tab'] ?? (sellerId > 0 ? 'sellers' : 'main')),
+      );
+      _notify();
+      return;
+    }
+
+    if ((file == 'product_edit.php' || file == 'product_view.php') && target > 0) {
+      await adminPush(context, AdminProductViewPage(id: target));
+      _notify();
+      return;
+    }
 
     if (sellerId > 0) {
       final name = aStr(a['seller_name']);
@@ -393,7 +413,13 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> with AdminLoad<Ad
                     Text(aStr(a['title']), style: const TextStyle(fontWeight: FontWeight.w900)),
                     if (aStr(a['body']).isNotEmpty) AdminMuted(aStr(a['body'])),
                     const SizedBox(height: 4),
-                    AdminMuted(aStr(a['created_at'])),
+                    Row(
+                      children: [
+                        Expanded(child: AdminMuted(aStr(a['created_at']))),
+                        if (aStr(a['link']).isNotEmpty || aInt(a['seller_id']) > 0)
+                          const Text('Open ›', style: TextStyle(color: AC.gold, fontWeight: FontWeight.w900)),
+                      ],
+                    ),
                   ],
                 ),
               ),
