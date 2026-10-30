@@ -51,7 +51,7 @@ class _AdminPageState extends State<AdminPage> {
     _NavItem('products', '📦', 'Products', 'review_products'),
     _NavItem('categories', '🏷️', 'Categories'),
     _NavItem('orders', '🛒', 'Orders', 'pending_orders'),
-    _NavItem('users', '👥', 'Users'),
+    _NavItem('users', '🛍️', 'Customers'),
     _NavItem('admins', '🛡️', 'Admin team'),
     _NavItem('activity', '🧾', 'Activity'),
     _NavItem('sellers', '🏪', 'Sellers', 'sellers'),
@@ -228,13 +228,13 @@ class _AdminPageState extends State<AdminPage> {
           initialSeller: aInt(_args['seller']),
         );
       case 'users':
-        return AdminUsersScreen(onGo: _go, initialRole: _args['role'] ?? 'all');
+        return AdminUsersScreen(onGo: _go, initialRole: 'customer');
       case 'admins':
         return const AdminTeamScreen();
       case 'activity':
         return const AdminActivityScreen();
       case 'sellers':
-        return const AdminSellersScreen();
+        return AdminSellersScreen(initialStatus: _args['status'] ?? '');
       case 'subscribers':
         return const AdminSubscribersScreen();
       case 'suggestions':

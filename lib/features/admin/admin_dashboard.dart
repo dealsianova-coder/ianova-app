@@ -94,6 +94,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _go(String page, [Map<String, String> args = const <String, String>{}]) {
+    if (page == 'backup') {
+      adminConfirm(context, 'Backups are made on the server (Termux): run  ianova-backup  or check that the daily backup is scheduled. Nothing to do in the app.');
+
+      return;
+    }
+
     widget.onGo(page, args);
   }
 
@@ -123,15 +129,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final attention = <List<dynamic>>[
       ['🛒', 'Pending orders', pendingOrders, 'orders', <String, String>{'status': 'pending'}],
       ['⏳', 'Products to review', reviewProducts, 'products', <String, String>{'status': 'pending'}],
-      ['🏪', 'Sellers to approve', pendingSellers, 'sellers', <String, String>{}],
-      ['💬', 'Unread seller messages', aInt(c['unread_messages']), 'sellers', <String, String>{}],
+      ['🏪', 'Sellers to approve', pendingSellers, 'sellers', <String, String>{'status': 'pending'}],
+      ['💬', 'Unread seller messages', aInt(c['unread_messages']), 'sellers', <String, String>{'status': 'messages'}],
       ['🔔', 'Unread alerts', aInt(c['alerts']), 'alerts', <String, String>{}],
-      ['⚠️', 'Low stock (3 or less)', aInt(c['low_stock']), 'products', <String, String>{}],
+      ['⚠️', 'Low stock (3 or less)', aInt(c['low_stock']), 'products', <String, String>{'status': 'low'}],
       ['⏰', 'Orders waiting over 24 hours', aInt(c['old_pending']), 'orders', <String, String>{'status': 'pending'}],
       ['🚚', 'Shipped over 7 days, not delivered', aInt(c['stuck_shipped']), 'orders', <String, String>{'status': 'shipped'}],
       ['💳', 'Orders with a balance to collect', aInt(c['to_collect']), 'payments', <String, String>{}],
       ['💸', 'Sellers waiting for a payout', aInt(c['payouts_due']), 'payouts', <String, String>{}],
-      ['💾', 'No backup in the last 3 days', aInt(c['backup_old']), 'dashboard', <String, String>{}],
+      ['💾', 'No backup in the last 3 days', aInt(c['backup_old']), 'backup', <String, String>{}],
     ];
 
     var attentionTotal = 0;
@@ -153,7 +159,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (aInt(cat['n']) > maxCat) maxCat = aInt(cat['n']);
     }
 
-    final panelLabels = <String, String>{'orders': '🛒 Orders', 'products': '📦 Products', 'categories': '🏷️ Categories', 'sellers': '🏪 Sellers', 'users': '👥 Users'};
+    final panelLabels = <String, String>{'orders': '🛒 Orders', 'products': '📦 Products', 'categories': '🏷️ Categories', 'sellers': '🏪 Sellers', 'users': '🛍️ Customers'};
     final panelPages = <String, String>{'orders': 'orders', 'products': 'products', 'categories': 'categories', 'sellers': 'sellers', 'users': 'users'};
     final panels = <String, List<Widget>>{
       'orders': [

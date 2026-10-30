@@ -352,9 +352,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<Admi
   @override
   Widget build(BuildContext context) {
     return gate((d) {
-      final sellers = aList(d['sellers']).where((r) => _hit([aStr(r['business_name']), aStr(r['email'])])).toList();
       final users = aList(d['users']).where((r) => _hit([aStr(r['name']), aStr(r['email'])])).toList();
-      final total = sellers.length + users.length;
 
       final children = <Widget>[
         TextField(
@@ -365,96 +363,50 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with AdminLoad<Admi
             _limit = 100;
             load();
           },
-          decoration: AdminField.decoration('Search name or email'),
+          decoration: AdminField.decoration('Search customers by name or email'),
         ),
         const SizedBox(height: 10),
-        AdminChipRow(
-          children: [
-            AdminChip(label: 'All', selected: _role == 'all', count: total, onTap: () => setState(() => _role = 'all')),
-            AdminChip(label: '🏪 Sellers', selected: _role == 'seller', count: sellers.length, onTap: () => setState(() => _role = 'seller')),
-            AdminChip(label: '🛍️ Customers', selected: _role == 'customer', count: users.length, onTap: () => setState(() => _role = 'customer')),
-          ],
-        ),
-        const SizedBox(height: 14),
+        _section('🛍️', 'Customers', '${users.length} shoppers. Sellers have their own page (🏪 Sellers) and admins are in 🛡️ Admin team.', const ATag('CUSTOMER')),
       ];
 
-      children.insert(
-        2,
-        InkWell(
-          onTap: () => widget.onGo?.call('admins'),
-          child: const Padding(padding: EdgeInsets.only(bottom: 10), child: AdminMuted('Sellers and customers only. Admin accounts are in 🛡️ Admin team ›')),
-        ),
-      );
-
-      if (_role == 'all' || _role == 'seller') {
-        children.add(_section('🏪', 'Sellers', '', const ATag('SELLER', kind: 'ok')));
-
-        for (final s in sellers) {
-          children.add(
-            AdminCard(
-              accent: AC.green,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(child: Text(aStr(s['business_name']), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900))),
-                      ATag(aStr(s['status']), kind: aStr(s['status']) == 'approved' ? 'ok' : 'wait'),
-                    ],
-                  ),
-                  Text(aStr(s['email'])),
-                  AdminMuted('${aInt(s['products'])} products · joined ${aStr(s['created_at'])}'),
-                  if (widget.onGo != null) ...[
-                    const SizedBox(height: 10),
-                    AdminButton('Open in Sellers', small: true, kind: 'gray', onPressed: () => widget.onGo!('sellers')),
+      for (final u in users) {
+        children.add(
+          AdminCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(aStr(u['name']), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                Text(aStr(u['email'])),
+                AdminMuted('${aInt(u['orders'])} orders · joined ${aStr(u['created_at'])}'),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    if (aInt(u['orders']) > 0 && widget.onGo != null)
+                      AdminButton('Orders', small: true, kind: 'gray', onPressed: () => widget.onGo!('orders')),
+                    AdminButton('Edit', small: true, onPressed: () => _editUser(u)),
+                    AdminButton('Delete', small: true, kind: 'red', onPressed: () => _delete(u)),
                   ],
-                ],
-              ),
+                ),
+              ],
             ),
-          );
-        }
-
-        if (sellers.isEmpty) children.add(const AdminCard(child: AdminMuted('No sellers.')));
+          ),
+        );
       }
 
-      if (_role == 'all' || _role == 'customer') {
-        children.add(_section('🛍️', 'Customers', '', const ATag('CUSTOMER')));
+      if (users.isEmpty) children.add(const AdminCard(child: AdminMuted('No customers.')));
 
-        for (final u in users) {
-          children.add(
-            AdminCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(aStr(u['name']), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-                  Text(aStr(u['email'])),
-                  AdminMuted('${aInt(u['orders'])} orders · joined ${aStr(u['created_at'])}'),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      AdminButton('Edit', small: true, onPressed: () => _editUser(u)),
-                      AdminButton('Delete', small: true, kind: 'red', onPressed: () => _delete(u)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        if (users.isEmpty) children.add(const AdminCard(child: AdminMuted('No customers.')));
-        if (aBool(d['more']))
-          children.add(
-            AdminButton(
-              'Show more customers',
-              kind: 'gray',
-              onPressed: () {
-                _limit += 100;
-                load();
-              },
-            ),
-          );
+      if (aBool(d['more'])) {
+        children.add(
+          AdminButton(
+            'Show more customers',
+            kind: 'gray',
+            onPressed: () {
+              _limit += 100;
+              load();
+            },
+          ),
+        );
       }
 
       return RefreshIndicator(

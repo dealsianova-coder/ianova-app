@@ -52,7 +52,7 @@ const List<List<String>> _sections = [
   ['more_products', 'Panel: Products'],
   ['more_categories', 'Panel: Categories'],
   ['more_sellers', 'Panel: Sellers'],
-  ['more_users', 'Panel: Users'],
+  ['more_users', 'Panel: Customers'],
 ];
 
 /// Choose what you see on your own dashboard and which quick actions it shows (opened from Settings).

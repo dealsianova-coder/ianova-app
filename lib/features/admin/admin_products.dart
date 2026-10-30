@@ -13,6 +13,7 @@ const Map<String, String> _statusLabels = {
   'approved': 'Approved',
   'rejected': 'Rejected',
   'hidden': 'Hidden',
+  'low': '⚠️ Low stock',
 };
 
 String _opt(Map<String, dynamic> p) {

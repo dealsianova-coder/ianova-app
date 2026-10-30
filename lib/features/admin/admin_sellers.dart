@@ -7,13 +7,33 @@ import 'admin_ui.dart';
 
 /// Sellers: approve, suspend, auto-approval switches, messages.
 class AdminSellersScreen extends StatefulWidget {
-  const AdminSellersScreen({super.key});
+  const AdminSellersScreen({super.key, this.initialStatus = ''});
+
+  /// '' = all, 'pending' = waiting for approval, 'messages' = unread messages.
+  final String initialStatus;
 
   @override
   State<AdminSellersScreen> createState() => _AdminSellersScreenState();
 }
 
 class _AdminSellersScreenState extends State<AdminSellersScreen> with AdminLoad<AdminSellersScreen> {
+  late String _filter = widget.initialStatus;
+
+  bool _match(Map<String, dynamic> s) {
+    switch (_filter) {
+      case 'pending':
+        return aStr(s['status']) == 'pending';
+      case 'messages':
+        return aInt(s['unread']) > 0;
+      case 'approved':
+        return aStr(s['status']) == 'approved';
+      case 'suspended':
+        return aStr(s['status']) == 'suspended' || aStr(s['status']) == 'rejected';
+    }
+
+    return true;
+  }
+
   @override
   Future<Map<String, dynamic>> fetch() => AdminApi.instance.panel('sellers_full');
 
@@ -65,8 +85,10 @@ class _AdminSellersScreenState extends State<AdminSellersScreen> with AdminLoad<
   @override
   Widget build(BuildContext context) {
     return gate((d) {
-      final sellers = aList(d['sellers']);
+      final all = aList(d['sellers']);
+      final sellers = all.where((x) => _match(aMap(x))).toList();
       final master = aBool(d['master_auto']);
+      int n(bool Function(Map<String, dynamic>) f) => all.where((x) => f(aMap(x))).length;
 
       return RefreshIndicator(
         onRefresh: load,
@@ -95,7 +117,17 @@ class _AdminSellersScreenState extends State<AdminSellersScreen> with AdminLoad<
                 ],
               ),
             ),
-            if (sellers.isEmpty) const AdminCard(child: AdminMuted('No sellers yet.')),
+            AdminChipRow(
+              children: [
+                AdminChip(label: 'All', count: all.length, selected: _filter == '', onTap: () => setState(() => _filter = '')),
+                AdminChip(label: '🕒 To approve', count: n((x) => aStr(x['status']) == 'pending'), selected: _filter == 'pending', onTap: () => setState(() => _filter = 'pending')),
+                AdminChip(label: '💬 New messages', count: n((x) => aInt(x['unread']) > 0), selected: _filter == 'messages', onTap: () => setState(() => _filter = 'messages')),
+                AdminChip(label: 'Approved', count: n((x) => aStr(x['status']) == 'approved'), selected: _filter == 'approved', onTap: () => setState(() => _filter = 'approved')),
+                AdminChip(label: 'Suspended', count: n((x) => aStr(x['status']) == 'suspended' || aStr(x['status']) == 'rejected'), selected: _filter == 'suspended', onTap: () => setState(() => _filter = 'suspended')),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (sellers.isEmpty) AdminCard(child: AdminMuted(all.isEmpty ? 'No sellers yet.' : 'No sellers in this list.')),
             for (final s in sellers)
               AdminCard(
                 accent: aStr(s['status']) == 'pending' ? AC.gold : null,
