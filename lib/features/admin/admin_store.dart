@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'admin_api.dart';
+import 'admin_dash_custom.dart';
 import 'admin_extras.dart';
 import 'admin_orders.dart';
 import 'admin_products.dart';
@@ -236,6 +237,25 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> with AdminLoa
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          AdminCard(
+            onTap: () => adminPush(context, const AdminDashCustomizePage()),
+            child: Row(
+              children: [
+                const Text('🎛️', style: TextStyle(fontSize: 24)),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Dashboard layout', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                      AdminMuted('Choose what you see on your dashboard and your quick actions.'),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: AC.muted),
+              ],
+            ),
+          ),
           for (final g in groups)
             AdminCard(
               child: Column(

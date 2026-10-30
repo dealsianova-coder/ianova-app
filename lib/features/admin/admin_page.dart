@@ -360,8 +360,24 @@ class _AdminPageState extends State<AdminPage> {
     return Scaffold(
       key: _sk,
       bottomNavigationBar: _bottomBar(),
-      appBar: AdminKeepBar(AppBar(
-        title: Text(_title),
+      appBar: AppBar(
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            const _Wordmark(height: 26, dark: true),
+            const SizedBox(width: 10),
+            Container(width: 1.5, height: 20, color: AC.line2),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AC.ink),
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: 'Alerts',
@@ -394,7 +410,7 @@ class _AdminPageState extends State<AdminPage> {
             ),
           ),
         ],
-      )),
+      ),
       drawer: AdminKeepColors(child: Drawer(
         backgroundColor: AC.side,
         child: SafeArea(
@@ -480,23 +496,34 @@ class _AdminPageState extends State<AdminPage> {
 }
 
 class _Wordmark extends StatelessWidget {
-  const _Wordmark({required this.height});
+  const _Wordmark({required this.height, this.dark = false});
 
   final double height;
 
+  /// true on a light bar (dark letters are fine); false on a dark panel (the logo gets a white pill).
+  final bool dark;
+
   @override
   Widget build(BuildContext context) {
-    return Image.network(
-      IanovaApiConfig.imageUrl('assets/img/ianova-wordmark.png'),
+    final img = Image.asset(
+      'assets/images/ianova_wordmark.png',
       height: height,
-      errorBuilder: (_, _, _) => const Text(
-        'IANOVA',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 24,
-          fontWeight: FontWeight.w900,
+      errorBuilder: (_, _, _) => Image.network(
+        IanovaApiConfig.imageUrl('assets/img/ianova-wordmark.png'),
+        height: height,
+        errorBuilder: (_, _, _) => Text(
+          'IANOVA',
+          style: TextStyle(color: dark ? AC.ink : Colors.white, fontSize: height * 0.8, fontWeight: FontWeight.w900),
         ),
       ),
+    );
+
+    if (dark) return img;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+      child: img,
     );
   }
 }

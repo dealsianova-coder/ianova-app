@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/config/api_config.dart';
 import '../../core/format/money.dart';
@@ -53,13 +54,15 @@ ThemeData adminTheme() {
       onPrimary: Colors.white,
     ),
     appBarTheme: const AppBarTheme(
-      backgroundColor: AC.side,
-      foregroundColor: Colors.white,
+      backgroundColor: Colors.white,
+      foregroundColor: AC.ink,
       elevation: 0,
-      scrolledUnderElevation: 0,
+      scrolledUnderElevation: 0.5,
+      shadowColor: Color(0x33000000),
       surfaceTintColor: Colors.transparent,
+      systemOverlayStyle: SystemUiOverlayStyle.dark,
       titleTextStyle: TextStyle(
-        color: Colors.white,
+        color: AC.ink,
         fontSize: 19,
         fontWeight: FontWeight.w800,
       ),

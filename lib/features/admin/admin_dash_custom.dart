@@ -55,21 +55,43 @@ const List<List<String>> _sections = [
   ['more_users', 'Panel: Users'],
 ];
 
-/// Choose what you see on your own dashboard and which quick actions it shows.
+/// Choose what you see on your own dashboard and which quick actions it shows (opened from Settings).
 class AdminDashCustomizePage extends StatefulWidget {
-  const AdminDashCustomizePage({super.key, required this.hidden, required this.quick});
-
-  final List<String> hidden;
-  final List<String> quick;
+  const AdminDashCustomizePage({super.key});
 
   @override
   State<AdminDashCustomizePage> createState() => _AdminDashCustomizePageState();
 }
 
-class _AdminDashCustomizePageState extends State<AdminDashCustomizePage> {
-  late final Set<String> _hide = {...widget.hidden};
-  late final List<String> _quick = [...widget.quick];
+class _AdminDashCustomizePageState extends State<AdminDashCustomizePage> with AdminLoad<AdminDashCustomizePage> {
+  final Set<String> _hide = <String>{};
+  final List<String> _quick = <String>[];
   bool _busy = false;
+  bool _filled = false;
+
+  @override
+  Future<Map<String, dynamic>> fetch() async {
+    final d = await AdminApi.instance.panel('dash_prefs_get');
+
+    if (!_filled) {
+      final p = aMap(d['prefs']);
+      _hide
+        ..clear()
+        ..addAll([for (final x in aList(p['hide'])) aStr(x)]);
+      _quick
+        ..clear()
+        ..addAll([for (final x in aList(p['quick'])) aStr(x)]);
+      _filled = true;
+    }
+
+    return d;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
 
   Future<void> _save() async {
     setState(() => _busy = true);
@@ -84,7 +106,7 @@ class _AdminDashCustomizePageState extends State<AdminDashCustomizePage> {
     setState(() => _busy = false);
 
     if (ok) {
-      adminSay(context, 'Dashboard saved.');
+      adminSay(context, 'Saved. Your dashboard now shows this.');
       Navigator.of(context).pop(true);
     }
   }
@@ -101,65 +123,74 @@ class _AdminDashCustomizePageState extends State<AdminDashCustomizePage> {
   @override
   Widget build(BuildContext context) {
     return AdminSubPage(
-      title: 'Customize dashboard',
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const AdminMuted('Only you see these changes. Other admins keep their own dashboard.'),
-          const SizedBox(height: 10),
-          AdminCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Show on my dashboard', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-                for (final s in _sections)
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    title: Text(s[1]),
-                    value: !_hide.contains(s[0]),
-                    onChanged: (v) => setState(() => v ? _hide.remove(s[0]) : _hide.add(s[0])),
-                  ),
-              ],
-            ),
-          ),
-          AdminCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Quick actions', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-                const AdminMuted('Pick up to 8. They show in the order you tick them.'),
-                for (final e in kQuickActions.entries)
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    secondary: Icon(e.value.icon, color: AC.gold),
-                    title: Text(e.value.label),
-                    subtitle: Text(e.value.sub, style: const TextStyle(fontSize: 12)),
-                    value: _quick.contains(e.key),
-                    onChanged: (v) {
-                      setState(() {
-                        if (v == true) {
-                          if (_quick.length < 8) _quick.add(e.key);
-                        } else if (_quick.length > 1) {
-                          _quick.remove(e.key);
+      title: 'Dashboard layout',
+      child: gate((d) {
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const AdminMuted('Only you see these changes. Other admins keep their own dashboard.'),
+            const SizedBox(height: 10),
+            AdminCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Show on my dashboard', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                  for (final s in _sections)
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Text(s[1]),
+                      value: !_hide.contains(s[0]),
+                      onChanged: (v) => setState(() {
+                        if (v) {
+                          _hide.remove(s[0]);
+                        } else {
+                          _hide.add(s[0]);
                         }
-                      });
-                    },
-                  ),
+                      }),
+                    ),
+                ],
+              ),
+            ),
+            AdminCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Quick actions', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                  const AdminMuted('Pick up to 8. They show in the order you tick them.'),
+                  for (final e in kQuickActions.entries)
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      secondary: Icon(e.value.icon, color: AC.gold),
+                      title: Text(e.value.label),
+                      subtitle: Text(e.value.sub, style: const TextStyle(fontSize: 12)),
+                      value: _quick.contains(e.key),
+                      onChanged: (v) {
+                        setState(() {
+                          if (v == true) {
+                            if (_quick.length < 8) _quick.add(e.key);
+                          } else if (_quick.length > 1) {
+                            _quick.remove(e.key);
+                          }
+                        });
+                      },
+                    ),
+                ],
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(child: AdminButton('Save', busy: _busy, onPressed: _busy ? null : _save)),
+                const SizedBox(width: 10),
+                AdminButton('Reset', kind: 'gray', onPressed: _reset),
               ],
             ),
-          ),
-          Row(
-            children: [
-              Expanded(child: AdminButton('Save', busy: _busy, onPressed: _busy ? null : _save)),
-              const SizedBox(width: 10),
-              AdminButton('Reset', kind: 'gray', onPressed: _reset),
-            ],
-          ),
-        ],
-      ),
+            const SizedBox(height: 24),
+          ],
+        );
+      }),
     );
   }
 }

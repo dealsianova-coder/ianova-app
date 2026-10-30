@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/format/money.dart';
 import 'admin_api.dart';
 import 'admin_dark.dart';
-import 'admin_dash_custom.dart';
+import 'admin_dash_custom.dart' show kQuickActions, kQuickColors;
 import 'admin_orders.dart';
 import 'admin_products.dart';
 import 'admin_ui.dart';
@@ -62,12 +62,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   bool _show(String id) => !_hidden.contains(id);
-
-  Future<void> _customize() async {
-    final saved = await adminPush<bool>(context, AdminDashCustomizePage(hidden: _hidden, quick: _quick));
-
-    if (saved == true) _load();
-  }
 
   Future<void> _quickGo(String id) async {
     if (id == 'add_product') {
@@ -399,15 +393,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: _customize,
-              icon: const Icon(Icons.tune, size: 18),
-              label: const Text('Customize'),
-            ),
-          ),
-          if (_show('welcome')) _Welcome(onTap: () => _go('analytics')),
+          if (_show('welcome')) _Welcome(name: aStr(data['me_name']), onTap: () => _go('analytics')),
           _KpiGrid(
             revenue: formatKsh(aNum(c['revenue'])),
             orders: aInt(c['orders']),
@@ -539,8 +525,9 @@ String _cap(String value) {
 }
 
 class _Welcome extends StatelessWidget {
-  const _Welcome({required this.onTap});
+  const _Welcome({required this.name, required this.onTap});
 
+  final String name;
   final VoidCallback onTap;
 
   static const _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -558,13 +545,13 @@ class _Welcome extends StatelessWidget {
       onTap: onTap,
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Welcome back, Admin!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-                SizedBox(height: 2),
-                Text("Here's what's happening with your store today.",
+                Text('Welcome back, ${name.trim().isEmpty ? 'Admin' : name.trim()}!', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 2),
+                const Text("Here's what's happening with your store today.",
                     style: TextStyle(color: AC.muted, fontSize: 13)),
               ],
             ),
